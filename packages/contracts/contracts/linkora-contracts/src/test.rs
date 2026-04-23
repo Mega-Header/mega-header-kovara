@@ -90,3 +90,23 @@ fn test_pool_deposit_withdraw() {
     assert_eq!(pool.balance, 800);
     assert_eq!(TokenClient::new(&env, &token).balance(&user), 9_200);
 }
+
+#[test]
+fn test_follow_is_idempotent() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+
+    // Follow bob twice from alice — should be deduplicated
+    client.follow(&alice, &bob);
+    client.follow(&alice, &bob);
+
+    let following = client.get_following(&alice);
+    // Bob must appear exactly once despite two follow calls
+    assert_eq!(following.len(), 1);
+    assert_eq!(following.get(0).unwrap(), bob);
+}

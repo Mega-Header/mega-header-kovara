@@ -32,6 +32,31 @@ fn test_profile() {
 }
 
 #[test]
+fn test_profile_update() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let user = Address::generate(&env);
+    let token_v1 = Address::generate(&env);
+    let token_v2 = Address::generate(&env);
+
+    // Initial registration
+    client.set_profile(&user, &String::from_str(&env, "alice"), &token_v1);
+    let profile = client.get_profile(&user).unwrap();
+    assert_eq!(profile.username, String::from_str(&env, "alice"));
+    assert_eq!(profile.creator_token, token_v1);
+
+    // Update username and creator_token
+    client.set_profile(&user, &String::from_str(&env, "alice_v2"), &token_v2);
+    let updated = client.get_profile(&user).unwrap();
+    assert_eq!(updated.username, String::from_str(&env, "alice_v2"));
+    assert_eq!(updated.creator_token, token_v2);
+    assert_eq!(updated.address, user);
+}
+
+#[test]
 fn test_follow() {
     let env = Env::default();
     env.mock_all_auths();

@@ -90,3 +90,38 @@ fn test_pool_deposit_withdraw() {
     assert_eq!(pool.balance, 800);
     assert_eq!(TokenClient::new(&env, &token).balance(&user), 9_200);
 }
+
+#[test]
+fn test_initialize() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+}
+
+#[test]
+#[should_panic(expected = "already initialized")]
+fn test_initialize_twice() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+    client.initialize(&admin);
+}
+
+#[test]
+#[should_panic(expected = "not initialized")]
+fn test_upgrade_not_initialized() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+    let new_wasm_hash = soroban_sdk::BytesN::from_array(&env, &[0u8; 32]);
+    client.upgrade(&new_wasm_hash);
+}

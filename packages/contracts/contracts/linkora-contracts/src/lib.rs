@@ -20,6 +20,13 @@ const FOLLOWS: Symbol = symbol_short!("FOLLOWS");
 const POOLS: Symbol = symbol_short!("POOLS");
 const ADMIN: Symbol = symbol_short!("ADMIN");
 
+// ── Validation Constants ─────────────────────────────────────────────────────
+
+const MIN_USERNAME_LEN: u32 = 3;
+const MAX_USERNAME_LEN: u32 = 32;
+const MIN_CONTENT_LEN: u32 = 1;
+const MAX_CONTENT_LEN: u32 = 280;
+
 // ── Data Types ───────────────────────────────────────────────────────────────
 
 #[contracttype]
@@ -60,6 +67,44 @@ pub struct ContractUpgraded {
 #[contract]
 pub struct LinkoraContract;
 
+// ── Validation Helpers ───────────────────────────────────────────────────────
+
+/// Validate username: 3-32 characters, alphanumeric and underscores only.
+fn validate_username(username: &String) -> Result<(), &'static str> {
+    let len = username.len();
+    if len < MIN_USERNAME_LEN {
+        return Err("username too short (min 3 characters)");
+    }
+    if len > MAX_USERNAME_LEN {
+        return Err("username too long (max 32 characters)");
+    }
+    
+    // Check for valid characters: alphanumeric and underscore
+    let bytes = username.to_bytes();
+    for i in 0..bytes.len() {
+        let byte = bytes.get(i).unwrap();
+        let c = byte as char;
+        if !c.is_ascii_alphanumeric() && c != '_' {
+            return Err("username must contain only alphanumeric characters and underscores");
+        }
+    }
+    
+    Ok(())
+}
+
+/// Validate post content: 1-280 characters.
+fn validate_content(content: &String) -> Result<(), &'static str> {
+    let len = content.len();
+    if len < MIN_CONTENT_LEN {
+        return Err("content cannot be empty");
+    }
+    if len > MAX_CONTENT_LEN {
+        return Err("content too long (max 280 characters)");
+    }
+    
+    Ok(())
+}
+
 #[contractimpl]
 impl LinkoraContract {
     // ── Profiles ─────────────────────────────────────────────────────────────
@@ -71,6 +116,10 @@ impl LinkoraContract {
     /// to avoid deserializing/serializing the entire profiles map on every operation.
     pub fn set_profile(env: Env, user: Address, username: String, creator_token: Address) {
         user.require_auth();
+        
+        // Validate username
+        validate_username(&username).expect("invalid username");
+        
         let profile = Profile {
             address: user.clone(),
             username,
@@ -115,6 +164,10 @@ impl LinkoraContract {
     /// significantly reduces storage fees as the dataset grows.
     pub fn create_post(env: Env, author: Address, content: String) -> u64 {
         author.require_auth();
+        
+        // Validate content
+        validate_content(&content).expect("invalid content");
+        
         let id: u64 = env
             .storage()
             .instance()

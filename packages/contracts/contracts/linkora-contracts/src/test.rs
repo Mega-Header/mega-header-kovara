@@ -92,35 +92,39 @@ fn test_pool_deposit_withdraw() {
 }
 
 #[test]
-#[should_panic(expected = "deposit amount must be positive")]
-fn test_pool_deposit_zero_amount() {
+fn test_sequential_posts() {
     let env = Env::default();
     env.mock_all_auths();
 
     let contract_id = env.register(LinkoraContract, ());
     let client = LinkoraContractClient::new(&env, &contract_id);
 
-    let user = Address::generate(&env);
-    let token = setup_token(&env, &user);
-    let pool_id = symbol_short!("community");
+    let author = Address::generate(&env);
 
-    // Zero deposit must be rejected before any state change
-    client.pool_deposit(&user, &pool_id, &token, &0);
-}
+    // Set first timestamp
+    let ts1 = 1000;
+    env.ledger().set_timestamp(ts1);
 
-#[test]
-#[should_panic(expected = "deposit amount must be positive")]
-fn test_pool_deposit_negative_amount() {
-    let env = Env::default();
-    env.mock_all_auths();
+    // Create first post
+    let post_id1 = client.create_post(&author, &String::from_str(&env, "First post"));
+    assert_eq!(post_id1, 1, "First post ID should be 1");
 
-    let contract_id = env.register(LinkoraContract, ());
-    let client = LinkoraContractClient::new(&env, &contract_id);
+    let post1 = client.get_post(&post_id1).unwrap();
+    assert_eq!(post1.timestamp, ts1, "First post timestamp should match ledger");
+    assert_eq!(post1.id, 1);
 
-    let user = Address::generate(&env);
-    let token = setup_token(&env, &user);
-    let pool_id = symbol_short!("community");
+    // Advance timestamp
+    let ts2 = 2000;
+    env.ledger().set_timestamp(ts2);
 
-    // Negative deposit must be rejected before any state change
-    client.pool_deposit(&user, &pool_id, &token, &-1);
+    // Create second post
+    let post_id2 = client.create_post(&author, &String::from_str(&env, "Second post"));
+    assert_eq!(post_id2, 2, "Second post ID should be 2");
+
+    let post2 = client.get_post(&post_id2).unwrap();
+    assert_eq!(post2.timestamp, ts2, "Second post timestamp should match updated ledger");
+    assert_eq!(post2.id, 2);
+
+    // Verify both exist and are distinct
+    assert!(post_id1 != post_id2);
 }

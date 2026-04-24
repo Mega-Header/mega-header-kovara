@@ -396,6 +396,7 @@ impl LinkoraContract {
         pool_id: Symbol,
         amount: i128,
     ) {
+        assert!(amount > 0, "withdrawal amount must be positive");
         recipient.require_auth();
         let key = (POOLS, pool_id);
         let mut pool: Pool = env.storage().persistent().get(&key).unwrap();

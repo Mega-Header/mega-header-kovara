@@ -149,6 +149,7 @@ impl LinkoraContract {
     // ── Tipping ───────────────────────────────────────────────────────────────
 
     /// Tip a post author. `token` is any SEP-41 token address.
+    /// Splits the tip between the author and the protocol treasury.
     pub fn tip(env: Env, tipper: Address, post_id: u64, token: Address, amount: i128) {
         tipper.require_auth();
         let mut posts: Map<u64, Post> = env
@@ -158,11 +159,27 @@ impl LinkoraContract {
             .unwrap_or(Map::new(&env));
         let mut post = posts.get(post_id).unwrap();
 
-        token::Client::new(&env, &token).transfer(
-            &tipper,
-            &post.author,
-            &amount,
-        );
+        let fee_bps: u32 = env.storage().instance().get(&FEE_BPS).unwrap_or(0);
+        let treasury: Option<Address> = env.storage().instance().get(&TREASURY);
+
+        let fee_amount = if let Some(ref _t) = treasury {
+            (amount * (fee_bps as i128)) / 10_000
+        } else {
+            0
+        };
+        let author_amount = amount - fee_amount;
+
+        let token_client = token::Client::new(&env, &token);
+
+        // Transfer fee to treasury if applicable
+        if fee_amount > 0 {
+            if let Some(treasury_addr) = treasury {
+                token_client.transfer(&tipper, &treasury_addr, &fee_amount);
+            }
+        }
+
+        // Transfer remainder to author
+        token_client.transfer(&tipper, &post.author, &author_amount);
 
         post.tip_total += amount;
         posts.set(post_id, post);

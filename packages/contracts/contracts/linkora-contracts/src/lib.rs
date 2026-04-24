@@ -12,8 +12,6 @@ const PROFILES: Symbol = symbol_short!("PROFILES");
 const FOLLOWS: Symbol = symbol_short!("FOLLOWS");
 const POOLS: Symbol = symbol_short!("POOLS");
 const ADMIN: Symbol = symbol_short!("ADMIN");
-const TREASURY: Symbol = symbol_short!("TREASURY");
-const FEE_BPS: Symbol = symbol_short!("FEE_BPS");
 
 // ── Data Types ───────────────────────────────────────────────────────────────
 
@@ -237,29 +235,13 @@ impl LinkoraContract {
         env.storage().persistent().get(&(POOLS, pool_id))
     }
 
-    // ── Protocol Admin ────────────────────────────────────────────────────────
+    // ── Upgradability ─────────────────────────────────────────────────────────
 
-    pub fn initialize(env: Env, admin: Address, treasury: Address, fee_bps: u32) {
+    pub fn initialize(env: Env, admin: Address) {
         if env.storage().persistent().has(&ADMIN) {
             panic!("already initialized");
         }
-        assert!(fee_bps <= 10_000, "fee_bps cannot exceed 10000");
         env.storage().persistent().set(&ADMIN, &admin);
-        env.storage().instance().set(&TREASURY, &treasury);
-        env.storage().instance().set(&FEE_BPS, &fee_bps);
-    }
-
-    pub fn set_fee(env: Env, fee_bps: u32) {
-        let admin: Address = env.storage().persistent().get(&ADMIN).expect("not initialized");
-        admin.require_auth();
-        assert!(fee_bps <= 10_000, "fee_bps cannot exceed 10000");
-        env.storage().instance().set(&FEE_BPS, &fee_bps);
-    }
-
-    pub fn set_treasury(env: Env, treasury: Address) {
-        let admin: Address = env.storage().persistent().get(&ADMIN).expect("not initialized");
-        admin.require_auth();
-        env.storage().instance().set(&TREASURY, &treasury);
     }
 
     pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {

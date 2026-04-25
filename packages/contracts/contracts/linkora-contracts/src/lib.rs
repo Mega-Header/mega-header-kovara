@@ -40,6 +40,7 @@ pub struct Post {
     pub content: String,
     pub tip_total: i128,
     pub timestamp: u64,
+    pub like_count: u64,
 }
 
 #[contracttype]
@@ -298,6 +299,47 @@ impl LinkoraContract {
             (symbol_short!("post_del"),),
             PostDeleted { post_id, author },
         );
+    }
+
+    // ── Reactions ────────────────────────────────────────────────────────────
+
+    pub fn like_post(env: Env, user: Address, post_id: u64) {
+        user.require_auth();
+
+        let key = (LIKES, post_id, user.clone());
+        if env.storage().persistent().has(&key) {
+            return;
+        }
+
+        let mut posts: Map<u64, Post> = env
+            .storage()
+            .persistent()
+            .get(&POSTS)
+            .unwrap_or(Map::new(&env));
+
+        if let Some(mut post) = posts.get(post_id) {
+            post.like_count += 1;
+            posts.set(post_id, post);
+            env.storage().persistent().set(&POSTS, &posts);
+            env.storage().persistent().set(&key, &true);
+        } else {
+            panic!("post not found");
+        }
+    }
+
+    pub fn get_like_count(env: Env, post_id: u64) -> u64 {
+        let posts: Map<u64, Post> = env
+            .storage()
+            .persistent()
+            .get(&POSTS)
+            .unwrap_or(Map::new(&env));
+
+        posts.get(post_id).map(|p| p.like_count).unwrap_or(0)
+    }
+
+    pub fn has_liked(env: Env, user: Address, post_id: u64) -> bool {
+        let key = (LIKES, post_id, user);
+        env.storage().persistent().has(&key)
     }
 
     // ── Tipping ───────────────────────────────────────────────────────────────

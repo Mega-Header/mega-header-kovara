@@ -62,7 +62,7 @@ The primary contract is `LinkoraContract`.
 ### Data Models
 
 - `Profile`: stores a user address, username, and creator token address
-- `Post`: stores post id, author, content, total tips, and timestamp
+- `Post`: stores post id, author, content, total tips, timestamp, and like count
 - `Pool`: stores a pool token address and tracked balance
 
 ### Contract API Reference

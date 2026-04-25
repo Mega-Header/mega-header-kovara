@@ -303,6 +303,7 @@ impl LinkoraContract {
     // ── Tipping ───────────────────────────────────────────────────────────────
 
     pub fn tip(env: Env, tipper: Address, post_id: u64, token: Address, amount: i128) {
+        assert!(amount > 0, "tip amount must be positive");
         tipper.require_auth();
         let key = (POSTS, post_id);
         let mut post: Post = env.storage().persistent().get(&key).expect("post not found");

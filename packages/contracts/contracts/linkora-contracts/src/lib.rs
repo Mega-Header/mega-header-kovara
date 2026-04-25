@@ -4,17 +4,33 @@ use soroban_sdk::{
     Symbol, Vec,
 };
 
-// ── Storage Keys ────────────────────────────────────────────────────────────
+// ── Storage Keys ─────────────────────────────────────────────────────────────
 
 const POSTS: Symbol = symbol_short!("POSTS");
 const POST_CT: Symbol = symbol_short!("POST_CT");
 const PROFILES: Symbol = symbol_short!("PROFILES");
 const FOLLOWS: Symbol = symbol_short!("FOLLOWS");
+const FOLLOWERS: Symbol = symbol_short!("FOLLOWRS");
 const POOLS: Symbol = symbol_short!("POOLS");
 const ADMIN: Symbol = symbol_short!("ADMIN");
-const LIKES: Symbol = symbol_short!("LIKES");
+const INITIALIZED: Symbol = symbol_short!("INIT");
 
-// ── Data Types ───────────────────────────────────────────────────────────────
+// ── TTL Constants ─────────────────────────────────────────────────────────────
+//
+// LEDGER_BUMP: target TTL (~30 days at 5s/ledger).
+// LEDGER_THRESHOLD: extend only when remaining TTL falls below this value.
+
+const LEDGER_BUMP: u32 = 535_000;
+const LEDGER_THRESHOLD: u32 = 535_000 - 100;
+
+// ── Validation Constants ──────────────────────────────────────────────────────
+
+const MIN_USERNAME_LEN: u32 = 3;
+const MAX_USERNAME_LEN: u32 = 32;
+const MIN_CONTENT_LEN: u32 = 1;
+const MAX_CONTENT_LEN: u32 = 280;
+
+// ── Data Types ────────────────────────────────────────────────────────────────
 
 #[contracttype]
 #[derive(Clone)]
@@ -32,7 +48,7 @@ pub struct Post {
 pub struct Profile {
     pub address: Address,
     pub username: String,
-    pub creator_token: Address, // SEP-41 token contract
+    pub creator_token: Address,
 }
 
 #[contracttype]
@@ -42,7 +58,36 @@ pub struct Pool {
     pub balance: i128,
 }
 
-// ── Events ───────────────────────────────────────────────────────────────────
+// ── Events ────────────────────────────────────────────────────────────────────
+
+#[contracttype]
+#[derive(Clone)]
+pub struct ProfileSetEvent {
+    pub user: Address,
+    pub username: String,
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub struct FollowEvent {
+    pub follower: Address,
+    pub followee: Address,
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub struct PostCreatedEvent {
+    pub id: u64,
+    pub author: Address,
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub struct TipEvent {
+    pub tipper: Address,
+    pub post_id: u64,
+    pub amount: i128,
+}
 
 #[contracttype]
 #[derive(Clone)]
@@ -50,48 +95,86 @@ pub struct ContractUpgraded {
     pub new_wasm_hash: BytesN<32>,
 }
 
-// ── Contract ─────────────────────────────────────────────────────────────────
+#[contracttype]
+#[derive(Clone)]
+pub struct PostDeleted {
+    pub post_id: u64,
+    pub author: Address,
+}
+
+// ── Contract ──────────────────────────────────────────────────────────────────
 
 #[contract]
 pub struct LinkoraContract;
 
+fn validate_username(username: &String) -> Result<(), &'static str> {
+    let len = username.len();
+    if len < MIN_USERNAME_LEN {
+        return Err("username too short");
+    }
+    if len > MAX_USERNAME_LEN {
+        return Err("username too long");
+    }
+    let bytes = username.to_bytes();
+    for i in 0..bytes.len() {
+        let c = bytes.get(i).unwrap() as char;
+        if !c.is_ascii_alphanumeric() && c != '_' {
+            return Err("invalid username character");
+        }
+    }
+    Ok(())
+}
+
+fn validate_content(content: &String) -> Result<(), &'static str> {
+    let len = content.len();
+    if len < MIN_CONTENT_LEN {
+        return Err("content cannot be empty");
+    }
+    if len > MAX_CONTENT_LEN {
+        return Err("content too long");
+    }
+    Ok(())
+}
+
 #[contractimpl]
 impl LinkoraContract {
-    // ── Profiles ─────────────────────────────────────────────────────────────
+    // ── Profiles ──────────────────────────────────────────────────────────────
 
-    /// Register or update a profile. `creator_token` is the SEP-41 token the
-    /// creator has already deployed; pass their own address if none yet.
     pub fn set_profile(env: Env, user: Address, username: String, creator_token: Address) {
         user.require_auth();
-        let mut profiles: Map<Address, Profile> = env
-            .storage()
-            .persistent()
-            .get(&PROFILES)
-            .unwrap_or(Map::new(&env));
-        profiles.set(
-            user.clone(),
-            Profile {
-                address: user,
-                username,
+        validate_username(&username).expect("invalid username");
+
+        let key = (PROFILES, user.clone());
+        env.storage().persistent().set(
+            &key,
+            &Profile {
+                address: user.clone(),
+                username: username.clone(),
                 creator_token,
             },
         );
-        env.storage().persistent().set(&PROFILES, &profiles);
+        Self::bump(&env, &key);
+
+        env.events().publish(
+            (symbol_short!("Linkora"), symbol_short!("profile"), symbol_short!("v1")),
+            ProfileSetEvent { user, username },
+        );
     }
 
     pub fn get_profile(env: Env, user: Address) -> Option<Profile> {
-        let profiles: Map<Address, Profile> = env
-            .storage()
-            .persistent()
-            .get(&PROFILES)
-            .unwrap_or(Map::new(&env));
-        profiles.get(user)
+        let key = (PROFILES, user);
+        let result: Option<Profile> = env.storage().persistent().get(&key);
+        if result.is_some() {
+            Self::bump(&env, &key);
+        }
+        result
     }
 
-    // ── Social Graph ─────────────────────────────────────────────────────────
+    // ── Social Graph ──────────────────────────────────────────────────────────
 
     pub fn follow(env: Env, follower: Address, followee: Address) {
         follower.require_auth();
+
         let key = (FOLLOWS, follower.clone());
         let mut list: Vec<Address> = env
             .storage()
@@ -99,54 +182,123 @@ impl LinkoraContract {
             .get(&key)
             .unwrap_or(Vec::new(&env));
         if !list.contains(&followee) {
-            list.push_back(followee);
+            list.push_back(followee.clone());
+            env.storage().persistent().set(&key, &list);
+            Self::bump(&env, &key);
         }
-        env.storage().persistent().set(&key, &list);
+
+        env.events().publish(
+            (symbol_short!("Linkora"), symbol_short!("follow"), symbol_short!("v1")),
+            FollowEvent { follower, followee },
+        );
+    }
+
+    pub fn unfollow(env: Env, follower: Address, followee: Address) {
+        follower.require_auth();
+
+        let fwd_key = (FOLLOWS, follower.clone());
+        let mut fwd: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&fwd_key)
+            .unwrap_or(Vec::new(&env));
+
+        if let Some(i) = fwd.iter().position(|a| a == followee) {
+            fwd.remove(i as u32);
+            env.storage().persistent().set(&fwd_key, &fwd);
+            Self::bump(&env, &fwd_key);
+
+            let rev_key = (FOLLOWERS, followee.clone());
+            let mut rev: Vec<Address> = env
+                .storage()
+                .persistent()
+                .get(&rev_key)
+                .unwrap_or(Vec::new(&env));
+            if let Some(j) = rev.iter().position(|a| a == follower) {
+                rev.remove(j as u32);
+                env.storage().persistent().set(&rev_key, &rev);
+                Self::bump(&env, &rev_key);
+            }
+        }
     }
 
     pub fn get_following(env: Env, user: Address) -> Vec<Address> {
-        env.storage()
+        let key = (FOLLOWS, user);
+        let result: Vec<Address> = env
+            .storage()
             .persistent()
-            .get(&(FOLLOWS, user))
-            .unwrap_or(Vec::new(&env))
+            .get(&key)
+            .unwrap_or(Vec::new(&env));
+        if !result.is_empty() {
+            Self::bump(&env, &key);
+        }
+        result
+    }
+
+    pub fn get_followers(env: Env, user: Address) -> Vec<Address> {
+        let key = (FOLLOWERS, user);
+        let result: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(Vec::new(&env));
+        if !result.is_empty() {
+            Self::bump(&env, &key);
+        }
+        result
     }
 
     // ── Posts ─────────────────────────────────────────────────────────────────
 
     pub fn create_post(env: Env, author: Address, content: String) -> u64 {
         author.require_auth();
-        let id: u64 = env
-            .storage()
-            .instance()
-            .get(&POST_CT)
-            .unwrap_or(0u64)
-            + 1;
-        let post = Post {
-            id,
-            author,
-            content,
-            tip_total: 0,
-            timestamp: env.ledger().timestamp(),
-            like_count: 0,
-        };
-        let mut posts: Map<u64, Post> = env
-            .storage()
-            .persistent()
-            .get(&POSTS)
-            .unwrap_or(Map::new(&env));
-        posts.set(id, post);
-        env.storage().persistent().set(&POSTS, &posts);
+        validate_content(&content).expect("invalid content");
+
+        let id: u64 = env.storage().instance().get(&POST_CT).unwrap_or(0u64) + 1;
+        let key = (POSTS, id);
+        env.storage().persistent().set(
+            &key,
+            &Post {
+                id,
+                author: author.clone(),
+                content,
+                tip_total: 0,
+                timestamp: env.ledger().timestamp(),
+            },
+        );
+        Self::bump(&env, &key);
         env.storage().instance().set(&POST_CT, &id);
+
+        env.events().publish(
+            (symbol_short!("Linkora"), symbol_short!("post"), symbol_short!("v1")),
+            PostCreatedEvent { id, author },
+        );
         id
     }
 
     pub fn get_post(env: Env, id: u64) -> Option<Post> {
-        let posts: Map<u64, Post> = env
+        let key = (POSTS, id);
+        let result: Option<Post> = env.storage().persistent().get(&key);
+        if result.is_some() {
+            Self::bump(&env, &key);
+        }
+        result
+    }
+
+    pub fn delete_post(env: Env, author: Address, post_id: u64) {
+        author.require_auth();
+        let key = (POSTS, post_id);
+        let post: Post = env
             .storage()
             .persistent()
-            .get(&POSTS)
-            .unwrap_or(Map::new(&env));
-        posts.get(id)
+            .get(&key)
+            .expect("post does not exist");
+        assert!(post.author == author, "only author can delete post");
+        env.storage().persistent().remove(&key);
+        env.events().publish(
+            (symbol_short!("post_del"),),
+            PostDeleted { post_id, author },
+        );
     }
 
     // ── Reactions ────────────────────────────────────────────────────────────
@@ -192,30 +344,26 @@ impl LinkoraContract {
 
     // ── Tipping ───────────────────────────────────────────────────────────────
 
-    /// Tip a post author. `token` is any SEP-41 token address.
     pub fn tip(env: Env, tipper: Address, post_id: u64, token: Address, amount: i128) {
+        assert!(amount > 0, "tip amount must be positive");
         tipper.require_auth();
-        let mut posts: Map<u64, Post> = env
-            .storage()
-            .persistent()
-            .get(&POSTS)
-            .unwrap_or(Map::new(&env));
-        let mut post = posts.get(post_id).unwrap();
+        let key = (POSTS, post_id);
+        let mut post: Post = env.storage().persistent().get(&key).expect("post not found");
 
-        token::Client::new(&env, &token).transfer(
-            &tipper,
-            &post.author,
-            &amount,
-        );
+        token::Client::new(&env, &token).transfer(&tipper, &post.author, &amount);
 
         post.tip_total += amount;
-        posts.set(post_id, post);
-        env.storage().persistent().set(&POSTS, &posts);
+        env.storage().persistent().set(&key, &post);
+        Self::bump(&env, &key);
+
+        env.events().publish(
+            (symbol_short!("Linkora"), symbol_short!("tip"), symbol_short!("v1")),
+            TipEvent { tipper, post_id, amount },
+        );
     }
 
-    // ── Community Token Pool ──────────────────────────────────────────────────
+    // ── Community Pool ────────────────────────────────────────────────────────
 
-    /// Deposit tokens into a named community pool.
     pub fn pool_deposit(
         env: Env,
         depositor: Address,
@@ -223,34 +371,37 @@ impl LinkoraContract {
         token: Address,
         amount: i128,
     ) {
+        assert!(amount > 0, "deposit amount must be positive");
         depositor.require_auth();
-        let contract = env.current_contract_address();
-        token::Client::new(&env, &token).transfer(&depositor, &contract, &amount);
-
+        token::Client::new(&env, &token).transfer(
+            &depositor,
+            &env.current_contract_address(),
+            &amount,
+        );
         let key = (POOLS, pool_id);
         let mut pool: Pool = env
             .storage()
             .persistent()
             .get(&key)
-            .unwrap_or(Pool { token: token.clone(), balance: 0 });
+            .unwrap_or(Pool { token, balance: 0 });
         pool.balance += amount;
         env.storage().persistent().set(&key, &pool);
+        Self::bump(&env, &key);
     }
 
-    /// Withdraw from a community pool (caller must be authorised — add governance as needed).
-    pub fn pool_withdraw(
-        env: Env,
-        recipient: Address,
-        pool_id: Symbol,
-        amount: i128,
-    ) {
+    pub fn pool_withdraw(env: Env, recipient: Address, pool_id: Symbol, amount: i128) {
+        assert!(amount > 0, "withdrawal amount must be positive");
         recipient.require_auth();
         let key = (POOLS, pool_id);
-        let mut pool: Pool = env.storage().persistent().get(&key).unwrap();
+        let mut pool: Pool = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .expect("pool not found");
         assert!(pool.balance >= amount, "insufficient pool balance");
         pool.balance -= amount;
         env.storage().persistent().set(&key, &pool);
-
+        Self::bump(&env, &key);
         token::Client::new(&env, &pool.token).transfer(
             &env.current_contract_address(),
             &recipient,
@@ -259,28 +410,56 @@ impl LinkoraContract {
     }
 
     pub fn get_pool(env: Env, pool_id: Symbol) -> Option<Pool> {
-        env.storage().persistent().get(&(POOLS, pool_id))
+        let key = (POOLS, pool_id);
+        let result: Option<Pool> = env.storage().persistent().get(&key);
+        if result.is_some() {
+            Self::bump(&env, &key);
+        }
+        result
     }
 
     // ── Upgradability ─────────────────────────────────────────────────────────
 
     pub fn initialize(env: Env, admin: Address) {
-        if env.storage().persistent().has(&ADMIN) {
+        if env
+            .storage()
+            .instance()
+            .get::<Symbol, bool>(&INITIALIZED)
+            .unwrap_or(false)
+        {
             panic!("already initialized");
         }
-        env.storage().persistent().set(&ADMIN, &admin);
+        env.storage().instance().set(&INITIALIZED, &true);
+        env.storage().instance().set(&ADMIN, &admin);
     }
 
     pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
-        let admin: Address = env.storage().persistent().get(&ADMIN).expect("not initialized");
-        admin.require_auth();
-
-        env.deployer().update_current_contract_wasm(new_wasm_hash.clone());
-
+        Self::require_admin(&env);
+        env.deployer()
+            .update_current_contract_wasm(new_wasm_hash.clone());
         env.events().publish(
-            (symbol_short!("upgraded"),),
+            (symbol_short!("Linkora"), symbol_short!("upgraded"), symbol_short!("v1")),
             ContractUpgraded { new_wasm_hash },
         );
+    }
+
+    // ── Internal Helpers ──────────────────────────────────────────────────────
+
+    fn require_admin(env: &Env) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&ADMIN)
+            .expect("not initialized");
+        admin.require_auth();
+    }
+
+    /// Extend the TTL of a persistent entry after every write and on every
+    /// successful read to keep active data alive on-chain.
+    fn bump<K: soroban_sdk::IntoVal<Env, soroban_sdk::Val>>(env: &Env, key: &K) {
+        env.storage()
+            .persistent()
+            .extend_ttl(key, LEDGER_THRESHOLD, LEDGER_BUMP);
     }
 }
 

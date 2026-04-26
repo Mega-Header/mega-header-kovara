@@ -4,7 +4,7 @@ use super::*;
 use soroban_sdk::{
     symbol_short,
     testutils::{storage::Persistent as _, Address as _, Ledger},
-    token::{Client as TokenClient, StellarAssetClient},
+    token::StellarAssetClient,
     Address, Env, String,
 };
 
@@ -320,4 +320,71 @@ fn test_like_post() {
     client.like_post(&user2, &post_id);
     assert_eq!(client.get_like_count(&post_id), 2);
     assert!(client.has_liked(&user2, &post_id));
+}
+
+#[test]
+fn test_post_and_tip() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let author = Address::generate(&env);
+    let tipper = Address::generate(&env);
+    let token = setup_token(&env, &tipper);
+
+    let post_id = client.create_post(&author, &String::from_str(&env, "Test post"));
+    let post_before = client.get_post(&post_id).unwrap();
+    assert_eq!(post_before.tip_total, 0);
+
+    client.tip(&tipper, &post_id, &token, &100);
+
+    let post_after = client.get_post(&post_id).unwrap();
+    assert_eq!(post_after.tip_total, 100);
+}
+
+#[test]
+#[should_panic(expected = "tip amount must be positive")]
+fn test_tip_zero_amount() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let author = Address::generate(&env);
+    let tipper = Address::generate(&env);
+    let token = setup_token(&env, &tipper);
+
+    let post_id = client.create_post(&author, &String::from_str(&env, "Test post"));
+    client.tip(&tipper, &post_id, &token, &0);
+}
+
+#[test]
+#[should_panic(expected = "tip amount must be positive")]
+fn test_tip_negative_amount() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let author = Address::generate(&env);
+    let tipper = Address::generate(&env);
+    let token = setup_token(&env, &tipper);
+
+    let post_id = client.create_post(&author, &String::from_str(&env, "Test post"));
+    client.tip(&tipper, &post_id, &token, &-1);
+}
+
+#[test]
+#[should_panic(expected = "post not found")]
+fn test_tip_non_existent_post() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let tipper = Address::generate(&env);
+    let token = setup_token(&env, &tipper);
+
+    client.tip(&tipper, &999, &token, &100);
 }

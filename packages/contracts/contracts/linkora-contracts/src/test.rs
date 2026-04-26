@@ -91,6 +91,78 @@ fn test_pool_deposit_withdraw() {
     assert_eq!(TokenClient::new(&env, &token).balance(&user), 9_200);
 }
 
+// ── Unfollow tests ────────────────────────────────────────────────────────────
+
+/// follow then unfollow: get_following returns empty list.
+#[test]
+fn test_unfollow_success() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+
+    client.follow(&alice, &bob);
+    assert_eq!(client.get_following(&alice).len(), 1);
+
+    client.unfollow(&alice, &bob);
+    assert_eq!(client.get_following(&alice).len(), 0);
+}
+
+/// unfollow on a relationship that does not exist must not panic.
+#[test]
+fn test_unfollow_noop_on_missing_relationship() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+
+    // Never followed — should be a silent no-op
+    client.unfollow(&alice, &bob);
+    assert_eq!(client.get_following(&alice).len(), 0);
+}
+
+/// after unfollow, get_followers no longer includes the unfollowed address.
+#[test]
+fn test_unfollow_removes_from_reverse_index() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+
+    client.follow(&alice, &bob);
+    assert_eq!(client.get_followers(&bob).len(), 1);
+
+    client.unfollow(&alice, &bob);
+    assert_eq!(client.get_followers(&bob).len(), 0);
+}
+
+/// double unfollow must not panic.
+#[test]
+fn test_double_unfollow_does_not_panic() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+
+    client.follow(&alice, &bob);
+    client.unfollow(&alice, &bob);
+    // second unfollow on an already-removed relationship — must not panic
+    client.unfollow(&alice, &bob);
+    assert_eq!(client.get_following(&alice).len(), 0);
+}
+
 #[test]
 fn test_sequential_posts() {
     let env = Env::default();

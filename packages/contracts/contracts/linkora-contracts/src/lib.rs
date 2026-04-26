@@ -10,6 +10,7 @@ const POSTS: Symbol = symbol_short!("POSTS");
 const POST_CT: Symbol = symbol_short!("POST_CT");
 const PROFILES: Symbol = symbol_short!("PROFILES");
 const FOLLOWS: Symbol = symbol_short!("FOLLOWS");
+const FOLLOWERS: Symbol = symbol_short!("FOLLOWERS");
 const POOLS: Symbol = symbol_short!("POOLS");
 const ADMIN: Symbol = symbol_short!("ADMIN");
 
@@ -90,22 +91,83 @@ impl LinkoraContract {
 
     pub fn follow(env: Env, follower: Address, followee: Address) {
         follower.require_auth();
-        let key = (FOLLOWS, follower.clone());
-        let mut list: Vec<Address> = env
+
+        // Forward index: follower -> [followees]
+        let fwd_key = (FOLLOWS, follower.clone());
+        let mut fwd: Vec<Address> = env
             .storage()
             .persistent()
-            .get(&key)
+            .get(&fwd_key)
             .unwrap_or(Vec::new(&env));
-        if !list.contains(&followee) {
-            list.push_back(followee);
+        if !fwd.contains(&followee) {
+            fwd.push_back(followee.clone());
+            env.storage().persistent().set(&fwd_key, &fwd);
+
+            // Reverse index: followee -> [followers]
+            let rev_key = (FOLLOWERS, followee.clone());
+            let mut rev: Vec<Address> = env
+                .storage()
+                .persistent()
+                .get(&rev_key)
+                .unwrap_or(Vec::new(&env));
+            rev.push_back(follower);
+            env.storage().persistent().set(&rev_key, &rev);
         }
-        env.storage().persistent().set(&key, &list);
+    }
+
+    pub fn unfollow(env: Env, follower: Address, followee: Address) {
+        follower.require_auth();
+
+        // Forward index: remove followee from follower's list
+        let fwd_key = (FOLLOWS, follower.clone());
+        let fwd: Vec<Address> = env
+            .storage()
+            .persistent()
+            .get(&fwd_key)
+            .unwrap_or(Vec::new(&env));
+
+        // Find position; if not present, no-op
+        let pos = fwd.iter().position(|a| a == followee);
+        if let Some(idx) = pos {
+            let mut new_fwd: Vec<Address> = Vec::new(&env);
+            for (i, a) in fwd.iter().enumerate() {
+                if i != idx {
+                    new_fwd.push_back(a);
+                }
+            }
+            env.storage().persistent().set(&fwd_key, &new_fwd);
+
+            // Reverse index: remove follower from followee's list
+            let rev_key = (FOLLOWERS, followee.clone());
+            let rev: Vec<Address> = env
+                .storage()
+                .persistent()
+                .get(&rev_key)
+                .unwrap_or(Vec::new(&env));
+            let rev_pos = rev.iter().position(|a| a == follower);
+            if let Some(ridx) = rev_pos {
+                let mut new_rev: Vec<Address> = Vec::new(&env);
+                for (i, a) in rev.iter().enumerate() {
+                    if i != ridx {
+                        new_rev.push_back(a);
+                    }
+                }
+                env.storage().persistent().set(&rev_key, &new_rev);
+            }
+        }
     }
 
     pub fn get_following(env: Env, user: Address) -> Vec<Address> {
         env.storage()
             .persistent()
             .get(&(FOLLOWS, user))
+            .unwrap_or(Vec::new(&env))
+    }
+
+    pub fn get_followers(env: Env, user: Address) -> Vec<Address> {
+        env.storage()
+            .persistent()
+            .get(&(FOLLOWERS, user))
             .unwrap_or(Vec::new(&env))
     }
 

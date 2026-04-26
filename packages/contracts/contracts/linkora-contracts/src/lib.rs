@@ -60,6 +60,7 @@ pub struct Profile {
 pub struct Pool {
     pub token: Address,
     pub balance: i128,
+    pub admins: Vec<Address>,
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────
@@ -405,6 +406,22 @@ impl LinkoraContract {
 
     // ── Community Pool ────────────────────────────────────────────────────────
 
+    pub fn create_pool(env: Env, pool_id: Symbol, token: Address, admins: Vec<Address>) {
+        assert!(!admins.is_empty(), "pool must have at least one admin");
+        let key = (POOLS, pool_id);
+        assert!(
+            !env.storage().persistent().has(&key),
+            "pool already exists"
+        );
+        let pool = Pool {
+            token,
+            balance: 0,
+            admins,
+        };
+        env.storage().persistent().set(&key, &pool);
+        Self::bump(&env, &key);
+    }
+
     pub fn pool_deposit(
         env: Env,
         depositor: Address,
@@ -424,7 +441,7 @@ impl LinkoraContract {
             .storage()
             .persistent()
             .get(&key)
-            .unwrap_or(Pool { token, balance: 0 });
+            .unwrap_or(Pool { token, balance: 0, admins: Vec::new(&env) });
         pool.balance += amount;
         env.storage().persistent().set(&key, &pool);
         Self::bump(&env, &key);
@@ -439,6 +456,13 @@ impl LinkoraContract {
             .persistent()
             .get(&key)
             .expect("pool not found");
+        
+        // Verify recipient is in the admin set
+        assert!(
+            pool.admins.iter().any(|admin| admin == &recipient),
+            "only pool admins can withdraw"
+        );
+        
         assert!(pool.balance >= amount, "insufficient pool balance");
         pool.balance -= amount;
         env.storage().persistent().set(&key, &pool);

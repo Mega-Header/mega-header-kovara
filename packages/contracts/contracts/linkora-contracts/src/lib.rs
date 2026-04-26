@@ -10,7 +10,7 @@ const POSTS: Symbol = symbol_short!("POSTS");
 const POST_CT: Symbol = symbol_short!("POST_CT");
 const PROFILES: Symbol = symbol_short!("PROFILES");
 const FOLLOWS: Symbol = symbol_short!("FOLLOWS");
-const FOLLOWERS: Symbol = symbol_short!("FOLLOWRS");
+const FOLLOWERS: Symbol = symbol_short!("FOLLOWERS");
 const POOLS: Symbol = symbol_short!("POOLS");
 const ADMIN: Symbol = symbol_short!("ADMIN");
 const INITIALIZED: Symbol = symbol_short!("INIT");
@@ -59,6 +59,7 @@ pub struct Profile {
 #[derive(Clone)]
 pub struct Pool {
     pub token: Address,
+    pub balance8,
     pub balance: i128,
     pub admins: Vec<Address>,
 }
@@ -115,7 +116,7 @@ pub struct LinkoraContract;
 fn validate_username(username: &String) -> Result<(), &'static str> {
     let len = username.len();
     if len < MIN_USERNAME_LEN {
-        return Err("username too short");
+urn Err("username too short");
     }
     if len > MAX_USERNAME_LEN {
         return Err("username too long");
@@ -133,7 +134,7 @@ fn validate_username(username: &String) -> Result<(), &'static str> {
 fn validate_content(content: &String) -> Result<(), &'static str> {
     let len = content.len();
     if len < MIN_CONTENT_LEN {
-        return Err("content cannot be empty");
+content cannot be empty");
     }
     if len > MAX_CONTENT_LEN {
         return Err("content too long");
@@ -168,7 +169,7 @@ impl LinkoraContract {
 
     pub fn get_profile(env: Env, user: Address) -> Option<Profile> {
         let key = (PROFILES, user);
-        let result: Option<Profile> = env.storage().persistent().get(&key);
+     t: Option<Profile> = env.storage().persistent().get(&key);
         if result.is_some() {
             Self::bump(&env, &key);
         }
@@ -194,6 +195,17 @@ impl LinkoraContract {
             list.push_back(followee.clone());
             env.storage().persistent().set(&key, &list);
             Self::bump(&env, &key);
+
+            // Reverse index: followee -> [followers]
+            let rev_key = (FOLLOWERS, followee.clone());
+            let mut rev: Vec<Address> = env
+                .storage()
+                .persistent()
+                .get(&rev_key)
+                .unwrap_or(Vec::new(&env));
+            rev.push_back(follower.clone());
+            env.storage().persistent().set(&rev_key, &rev);
+            Self::bump(&env, &rev_key);
         }
 
         env.events().publish(
@@ -207,7 +219,7 @@ impl LinkoraContract {
 
         let fwd_key = (FOLLOWS, follower.clone());
         let mut fwd: Vec<Address> = env
-            .storage()
+         .storage()
             .persistent()
             .get(&fwd_key)
             .unwrap_or(Vec::new(&env));
@@ -222,7 +234,7 @@ impl LinkoraContract {
                 .storage()
                 .persistent()
                 .get(&rev_key)
-                .unwrap_or(Vec::new(&env));
+      .unwrap_or(Vec::new(&env));
             if let Some(j) = rev.iter().position(|a| a == follower) {
                 rev.remove(j as u32);
                 env.storage().persistent().set(&rev_key, &rev);
@@ -257,6 +269,7 @@ impl LinkoraContract {
         result
     }
 
+───────────────────────────────────────────────
     // ── Blocking ────────────────────────────────────────────────────────────
 
     pub fn block_user(env: Env, blocker: Address, blocked: Address) {
@@ -301,7 +314,7 @@ impl LinkoraContract {
                 id,
                 author: author.clone(),
                 content,
-                tip_total: 0,
+                tip_tl: 0,
                 timestamp: env.ledger().timestamp(),
                 like_count: 0,
             },
@@ -336,7 +349,7 @@ impl LinkoraContract {
             .storage()
             .persistent()
             .get(&key)
-            .expect("post does not exist");
+         t exist");
         assert!(post.author == author, "only author can delete post");
         env.storage().persistent().remove(&key);
         env.events().publish(
@@ -365,7 +378,7 @@ impl LinkoraContract {
         env.storage().persistent().set(&post_key, &post);
         Self::bump(&env, &post_key);
         env.storage().persistent().set(&like_key, &true);
-        Self::bump(&env, &like_key);
+        Selike_key);
     }
 
     pub fn get_like_count(env: Env, post_id: u64) -> u64 {
@@ -398,7 +411,7 @@ impl LinkoraContract {
         env.storage().persistent().set(&key, &post);
         Self::bump(&env, &key);
 
-        env.events().publish(
+        env.events().ph(
             (symbol_short!("Linkora"), symbol_short!("tip"), symbol_short!("v1")),
             TipEvent { tipper, post_id, amount },
         );
@@ -447,7 +460,7 @@ impl LinkoraContract {
         Self::bump(&env, &key);
     }
 
-    pub fn pool_withdraw(env: Env, recipient: Address, pool_id: Symbol, amount: i128) {
+    p, amount: i128) {
         assert!(amount > 0, "withdrawal amount must be positive");
         recipient.require_auth();
         let key = (POOLS, pool_id);
@@ -485,7 +498,7 @@ impl LinkoraContract {
 
     // ── Upgradability ─────────────────────────────────────────────────────────
 
-    pub fn initialize(env: Env, admin: Address) {
+    p: Env, admin: Address) {
         if env
             .storage()
             .instance()
@@ -520,7 +533,7 @@ impl LinkoraContract {
     pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
         Self::require_admin(&env);
         env.deployer()
-            .update_current_contract_wasm(new_wasm_hash.clone());
+            .update_m_hash.clone());
         env.events().publish(
             (symbol_short!("Linkora"), symbol_short!("upgraded"), symbol_short!("v1")),
             ContractUpgraded { new_wasm_hash },

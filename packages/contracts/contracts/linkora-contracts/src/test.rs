@@ -30,6 +30,100 @@ fn setup_token(env: &Env, admin: &Address) -> Address {
 fn test_set_and_get_profile() {
     let env = Env::default();
     env.mock_all_auths();
+<<<<<<< HEAD
+=======
+
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let author = Address::generate(&env);
+    let tipper = Address::generate(&env);
+    
+    // Initialize with 0% fee
+    client.initialize(&admin, &treasury, &0);
+
+    let token = setup_token(&env, &tipper);
+    let post_id = client.create_post(&author, &String::from_str(&env, "Zero fee post"));
+
+    client.tip(&tipper, &post_id, &token, &1000);
+
+    assert_eq!(TokenClient::new(&env, &token).balance(&treasury), 0);
+    assert_eq!(TokenClient::new(&env, &token).balance(&author), 1000);
+}
+
+#[test]
+fn test_set_fee_and_treasury() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    
+    client.initialize(&admin, &treasury, &0);
+
+    // Update fee
+    client.set_fee(&500); // 5%
+    
+    // Update treasury
+    let new_treasury = Address::generate(&env);
+    client.set_treasury(&new_treasury);
+
+    let author = Address::generate(&env);
+    let tipper = Address::generate(&env);
+    let token = setup_token(&env, &tipper);
+    let post_id = client.create_post(&author, &String::from_str(&env, "Update test post"));
+
+    client.tip(&tipper, &post_id, &token, &1000);
+
+    assert_eq!(TokenClient::new(&env, &token).balance(&new_treasury), 50);
+    assert_eq!(TokenClient::new(&env, &token).balance(&author), 950);
+}
+
+#[test]
+#[should_panic(expected = "fee_bps cannot exceed 10000")]
+fn test_invalid_fee() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.initialize(&admin, &treasury, &10001);
+}
+
+#[test]
+#[should_panic(expected = "deposit amount must be positive")]
+fn test_pool_deposit_zero_amount() {
+=======
+fn test_sequential_posts() {
+>>>>>>> main
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+<<<<<<< fix/reject-zero-negative-pool-withdrawal
+    let user = Address::generate(&env);
+    let token = setup_token(&env, &user);
+    let pool_id = symbol_short!("community");
+
+    // Zero deposit must be rejected before any state change
+    client.pool_deposit(&user, &pool_id, &token, &0);
+}
+
+#[test]
+#[should_panic(expected = "deposit amount must be positive")]
+fn test_pool_deposit_negative_amount() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+>>>>>>> 7e386b3 (Add block_user function to restrict unwanted follow and tip interactions)
     let contract_id = env.register(LinkoraContract, ());
     let client = LinkoraContractClient::new(&env, &contract_id);
 
@@ -61,14 +155,20 @@ fn test_follow_is_idempotent() {
     assert_eq!(following.get(0).unwrap(), bob);
 }
 
+<<<<<<< HEAD
 // ── Post tests ────────────────────────────────────────────────────────────────
 
 #[test]
 fn test_sequential_posts() {
+=======
+#[test]
+fn test_block_user() {
+>>>>>>> 7e386b3 (Add block_user function to restrict unwanted follow and tip interactions)
     let env = Env::default();
     env.mock_all_auths();
     let contract_id = env.register(LinkoraContract, ());
     let client = LinkoraContractClient::new(&env, &contract_id);
+<<<<<<< HEAD
     let author = Address::generate(&env);
 
     env.ledger().set_timestamp(1000);
@@ -105,10 +205,29 @@ fn test_get_post_count_after_create_and_delete() {
 #[test]
 #[should_panic(expected = "deposit amount must be positive")]
 fn test_pool_deposit_zero_amount() {
+=======
+
+    let blocker = Address::generate(&env);
+    let blocked = Address::generate(&env);
+
+    // Block
+    client.block_user(&blocker, &blocked);
+    assert!(client.is_blocked(&blocker, &blocked));
+
+    // Unblock
+    client.unblock_user(&blocker, &blocked);
+    assert!(!client.is_blocked(&blocker, &blocked));
+}
+
+#[test]
+#[should_panic(expected = "blocked")]
+fn test_follow_after_block() {
+>>>>>>> 7e386b3 (Add block_user function to restrict unwanted follow and tip interactions)
     let env = Env::default();
     env.mock_all_auths();
     let contract_id = env.register(LinkoraContract, ());
     let client = LinkoraContractClient::new(&env, &contract_id);
+<<<<<<< HEAD
     let user = Address::generate(&env);
     let token = setup_token(&env, &user);
     client.pool_deposit(&user, &symbol_short!("community"), &token, &0);
@@ -117,10 +236,26 @@ fn test_pool_deposit_zero_amount() {
 #[test]
 #[should_panic(expected = "deposit amount must be positive")]
 fn test_pool_deposit_negative_amount() {
+=======
+
+    let blocker = Address::generate(&env);
+    let blocked = Address::generate(&env);
+
+    // Blocker blocks blocked
+    client.block_user(&blocker, &blocked);
+
+    // Blocked tries to follow blocker — should panic
+    client.follow(&blocked, &blocker);
+}
+
+#[test]
+fn test_follow_after_unblock() {
+>>>>>>> 7e386b3 (Add block_user function to restrict unwanted follow and tip interactions)
     let env = Env::default();
     env.mock_all_auths();
     let contract_id = env.register(LinkoraContract, ());
     let client = LinkoraContractClient::new(&env, &contract_id);
+<<<<<<< HEAD
     let user = Address::generate(&env);
     let token = setup_token(&env, &user);
     client.pool_deposit(&user, &symbol_short!("community"), &token, &-1);
@@ -320,4 +455,22 @@ fn test_like_post() {
     client.like_post(&user2, &post_id);
     assert_eq!(client.get_like_count(&post_id), 2);
     assert!(client.has_liked(&user2, &post_id));
+=======
+
+    let blocker = Address::generate(&env);
+    let blocked = Address::generate(&env);
+
+    // Block
+    client.block_user(&blocker, &blocked);
+
+    // Unblock
+    client.unblock_user(&blocker, &blocked);
+
+    // Now follow should work
+    client.follow(&blocked, &blocker);
+
+    let followers = client.get_followers(&blocker);
+    assert_eq!(followers.len(), 1);
+    assert_eq!(followers.get(0).unwrap(), blocked);
+>>>>>>> 7e386b3 (Add block_user function to restrict unwanted follow and tip interactions)
 }

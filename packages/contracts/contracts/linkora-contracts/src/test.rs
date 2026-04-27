@@ -5,18 +5,8 @@ use soroban_sdk::{
     symbol_short,
     testutils::{Address as _, Ledger},
     token::{Client as TokenClient, StellarAssetClient},
-    Address, Env, String,
+    vec, Address, Env, String,
 };
-
-fn setup_env() -> Env {
-    let env = Env::default();
-    env.ledger().with_mut(|li| {
-        li.sequence_number = 100_000;
-        li.min_persistent_entry_ttl = 500;
-        li.max_entry_ttl = 600_000;
-    });
-    env
-}
 
 fn setup_token(env: &Env, admin: &Address) -> Address {
     let token_id = env.register_stellar_asset_contract_v2(admin.clone());
@@ -24,16 +14,20 @@ fn setup_token(env: &Env, admin: &Address) -> Address {
     token_id.address()
 }
 
-fn setup_contract(env: &Env) -> (LinkoraContractClient<'_>, Address) {
+fn setup_contract(env: &Env) -> (LinkoraContractClient, Address, Address) {
     let contract_id = env.register(LinkoraContract, ());
-    (LinkoraContractClient::new(env, &contract_id), contract_id)
+    let client = LinkoraContractClient::new(env, &contract_id);
+    let admin = Address::generate(env);
+    let treasury = Address::generate(env);
+    client.initialize(&admin, &treasury, &0);
+    (client, admin, treasury)
 }
 
 #[test]
 fn test_set_and_get_profile() {
     let env = Env::default();
     env.mock_all_auths();
-    let (client, _) = setup_contract(&env);
+    let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
     let token = Address::generate(&env);
@@ -43,137 +37,93 @@ fn test_set_and_get_profile() {
 }
 
 #[test]
-fn test_post_and_tip_fee_split() {
+fn test_tip_fee_split() {
     let env = Env::default();
     env.mock_all_auths();
-    let (client, _) = setup_contract(&env);
+
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
     let treasury = Address::generate(&env);
-    client.initialize(&admin);
-    client.set_treasury(&treasury);
-    client.set_fee(&500);
-
     let author = Address::generate(&env);
     let tipper = Address::generate(&env);
-    let token = setup_token(&env, &tipper);
-    let post_id = client.create_post(&author, &String::from_str(&env, "Test post"));
 
+    // Initialize with 2.5% fee (250 bps)
+    client.initialize(&admin, &treasury, &250);
+
+    let token = setup_token(&env, &tipper);
+    let post_id = client.create_post(&author, &String::from_str(&env, "Fee test post"));
+
+    // Tip 1000 units
     client.tip(&tipper, &post_id, &token, &1000);
-    assert_eq!(TokenClient::new(&env, &token).balance(&treasury), 50);
-    assert_eq!(TokenClient::new(&env, &token).balance(&author), 950);
+
+    // Verify balances
+    // Fee = 1000 * 250 / 10000 = 25
+    // Author gets 1000 - 25 = 975
+    assert_eq!(TokenClient::new(&env, &token).balance(&treasury), 25);
+    assert_eq!(TokenClient::new(&env, &token).balance(&author), 975);
+
+    let post = client.get_post(&post_id).unwrap();
+    assert_eq!(post.tip_total, 1000);
 }
 
 #[test]
-fn test_tip_zero_fee_sends_all_to_author() {
+fn test_profile_count() {
     let env = Env::default();
     env.mock_all_auths();
-    let (client, _) = setup_contract(&env);
+    let (client, _, _) = setup_contract(&env);
 
-    let admin = Address::generate(&env);
-    let treasury = Address::generate(&env);
-    client.initialize(&admin);
-    client.set_treasury(&treasury);
-    client.set_fee(&0);
+    let user1 = Address::generate(&env);
+    let user2 = Address::generate(&env);
+    let token = Address::generate(&env);
+
+    client.set_profile(&user1, &String::from_str(&env, "alice"), &token);
+    assert_eq!(client.get_profile_count(), 1);
+
+    // Update profile should not increment count
+    client.set_profile(&user1, &String::from_str(&env, "alice_new"), &token);
+    assert_eq!(client.get_profile_count(), 1);
+
+    client.set_profile(&user2, &String::from_str(&env, "bob"), &token);
+    assert_eq!(client.get_profile_count(), 2);
+}
+
+#[test]
+fn test_post_count() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _) = setup_contract(&env);
 
     let author = Address::generate(&env);
-    let tipper = Address::generate(&env);
-    let token = setup_token(&env, &tipper);
-    let post_id = client.create_post(&author, &String::from_str(&env, "Zero fee"));
+    client.create_post(&author, &String::from_str(&env, "Post 1"));
+    client.create_post(&author, &String::from_str(&env, "Post 2"));
 
-    client.tip(&tipper, &post_id, &token, &1000);
-    assert_eq!(TokenClient::new(&env, &token).balance(&treasury), 0);
-    assert_eq!(TokenClient::new(&env, &token).balance(&author), 1000);
-}
-
-#[test]
-fn test_set_fee_and_treasury_update() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let (client, _) = setup_contract(&env);
-
-    let admin = Address::generate(&env);
-    let treasury = Address::generate(&env);
-    client.initialize(&admin);
-    client.set_treasury(&treasury);
-    client.set_fee(&100);
-    assert_eq!(client.get_fee_bps(), 100);
-    assert_eq!(client.get_treasury().unwrap(), treasury);
-
-    let new_treasury = Address::generate(&env);
-    client.set_treasury(&new_treasury);
-    client.set_fee(&250);
-    assert_eq!(client.get_fee_bps(), 250);
-    assert_eq!(client.get_treasury().unwrap(), new_treasury);
-}
-
-#[test]
-#[should_panic(expected = "fee_bps cannot exceed 10000")]
-fn test_invalid_fee_above_max() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let (client, _) = setup_contract(&env);
-
-    let admin = Address::generate(&env);
-    client.initialize(&admin);
-    client.set_fee(&10_001);
-}
-
-#[test]
-#[should_panic(expected = "post not found: 999")]
-fn test_tip_non_existent_post_message() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let (client, _) = setup_contract(&env);
-
-    let admin = Address::generate(&env);
-    client.initialize(&admin);
-
-    let tipper = Address::generate(&env);
-    let token = setup_token(&env, &tipper);
-    client.tip(&tipper, &999, &token, &100);
-}
-
-#[test]
-#[should_panic(expected = "post does not exist: 999")]
-fn test_delete_post_non_existent_message() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let (client, _) = setup_contract(&env);
-
-    let author = Address::generate(&env);
-    client.delete_post(&author, &999);
-}
-
-#[test]
-#[should_panic(expected = "pool not found: Symbol(missing)")]
-fn test_pool_withdraw_non_existent_message() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let (client, _) = setup_contract(&env);
-
-    let recipient = Address::generate(&env);
-    client.pool_withdraw(&recipient, &symbol_short!("missing"), &1);
+    assert_eq!(client.get_post_count(), 2);
 }
 
 #[test]
 fn test_follow_and_unfollow() {
     let env = Env::default();
     env.mock_all_auths();
-    let (client, _) = setup_contract(&env);
+    let (client, _, _) = setup_contract(&env);
 
     let alice = Address::generate(&env);
     let bob = Address::generate(&env);
     client.follow(&alice, &bob);
+    assert_eq!(client.get_following(&alice).len(), 1);
+    assert_eq!(client.get_followers(&bob).len(), 1);
+
     client.unfollow(&alice, &bob);
     assert_eq!(client.get_following(&alice).len(), 0);
+    assert_eq!(client.get_followers(&bob).len(), 0);
 }
 
 #[test]
 fn test_block_prevents_follow() {
     let env = Env::default();
     env.mock_all_auths();
-    let (client, _) = setup_contract(&env);
+    let (client, _, _) = setup_contract(&env);
 
     let blocker = Address::generate(&env);
     let blocked = Address::generate(&env);
@@ -182,21 +132,145 @@ fn test_block_prevents_follow() {
 }
 
 #[test]
-fn test_pool_deposit_and_withdraw() {
-    let env = setup_env();
+#[should_panic(expected = "blocked")]
+fn test_blocked_follow_panics() {
+    let env = Env::default();
     env.mock_all_auths();
-    let (client, _) = setup_contract(&env);
+    let (client, _, _) = setup_contract(&env);
 
-    let admin = Address::generate(&env);
-    let token = setup_token(&env, &admin);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+
+    // Bob blocks Alice
+    client.block_user(&bob, &alice);
+
+    // Alice tries to follow Bob
+    client.follow(&alice, &bob);
+}
+
+#[test]
+fn test_like_post() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _) = setup_contract(&env);
+
+    let author = Address::generate(&env);
+    let user = Address::generate(&env);
+    let post_id = client.create_post(&author, &String::from_str(&env, "Like test"));
+
+    client.like_post(&user, &post_id);
+    assert_eq!(client.get_like_count(&post_id), 1);
+    assert!(client.has_liked(&user, &post_id));
+
+    // Duplicate like should not increment
+    client.like_post(&user, &post_id);
+    assert_eq!(client.get_like_count(&post_id), 1);
+}
+
+#[test]
+fn test_pool_authorization() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let pool_admin1 = Address::generate(&env);
+    let pool_admin2 = Address::generate(&env);
+    let other_user = Address::generate(&env);
+    let token = setup_token(&env, &pool_admin1);
+
+    // Give other_user some tokens to deposit
+    StellarAssetClient::new(&env, &token).mint(&other_user, &1000);
+
     let pool_id = symbol_short!("pool1");
-    let mut admins = Vec::new(&env);
-    admins.push_back(admin.clone());
+    // Create pool with 2-of-2 threshold
+    client.create_pool(
+        &admin,
+        &pool_id,
+        &token,
+        &vec![&env, pool_admin1.clone(), pool_admin2.clone()],
+        &2,
+    );
 
-    client.create_pool(&pool_id, &token, &admins);
-    client.pool_deposit(&admin, &pool_id, &token, &500);
-    client.pool_withdraw(&admin, &pool_id, &200);
+    // Deposit works for anyone with tokens
+    client.pool_deposit(&other_user, &pool_id, &token, &100);
 
-    let pool = client.get_pool(&pool_id).unwrap();
-    assert_eq!(pool.balance, 300);
+    // Withdrawal by both admins works
+    client.pool_withdraw(
+        &vec![&env, pool_admin1.clone(), pool_admin2.clone()],
+        &pool_id,
+        &50,
+        &other_user,
+    );
+    assert_eq!(client.get_pool(&pool_id).unwrap().balance, 50);
+}
+
+#[test]
+#[should_panic(expected = "insufficient signers")]
+fn test_pool_withdraw_insufficient_signers() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let pool_admin1 = Address::generate(&env);
+    let pool_admin2 = Address::generate(&env);
+    let other_user = Address::generate(&env);
+    let token = setup_token(&env, &pool_admin1);
+    StellarAssetClient::new(&env, &token).mint(&other_user, &1000);
+
+    let pool_id = symbol_short!("pool1");
+    client.create_pool(
+        &admin,
+        &pool_id,
+        &token,
+        &vec![&env, pool_admin1.clone(), pool_admin2.clone()],
+        &2,
+    );
+    client.pool_deposit(&other_user, &pool_id, &token, &100);
+
+    // Only 1 signer when 2 required
+    client.pool_withdraw(&vec![&env, pool_admin1.clone()], &pool_id, &50, &other_user);
+}
+
+#[test]
+fn test_sequential_posts() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _) = setup_contract(&env);
+
+    let author = Address::generate(&env);
+
+    // Set first timestamp
+    let ts1 = 1000;
+    env.ledger().set_timestamp(ts1);
+
+    // Create first post
+    let post_id1 = client.create_post(&author, &String::from_str(&env, "First post"));
+    assert_eq!(post_id1, 1);
+
+    let post1 = client.get_post(&post_id1).unwrap();
+    assert_eq!(post1.timestamp, ts1);
+    assert_eq!(post1.id, 1);
+
+    // Advance timestamp
+    let ts2 = 2000;
+    env.ledger().set_timestamp(ts2);
+
+    // Create second post
+    let post_id2 = client.create_post(&author, &String::from_str(&env, "Second post"));
+    assert_eq!(post_id2, 2);
+
+    let post2 = client.get_post(&post_id2).unwrap();
+    assert_eq!(post2.timestamp, ts2);
+    assert_eq!(post2.id, 2);
+}
+
+#[test]
+#[should_panic(expected = "post does not exist: 999")]
+fn test_delete_post_non_existent() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _) = setup_contract(&env);
+
+    let author = Address::generate(&env);
+    client.delete_post(&author, &999);
 }

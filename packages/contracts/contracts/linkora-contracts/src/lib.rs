@@ -2,6 +2,10 @@
 use soroban_sdk::{
     contract, contractevent, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env,
     Map, String, Symbol, Vec,
+    contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env, Map,
+    String, Symbol, Vec,
+    contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env, Map, String,
+    Symbol, Vec,
 };
 
 const POSTS: Symbol = symbol_short!("POSTS");
@@ -381,6 +385,11 @@ impl LinkoraContract {
     pub fn delete_post(env: Env, author: Address, post_id: u64) {
         author.require_auth();
         let key = (POSTS, post_id);
+        let post: Post = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .expect("post not found");
         let post: Post = env.storage().persistent().get(&key).unwrap_or_else(|| {
             panic!("post does not exist: {}", post_id);
         });
@@ -532,6 +541,13 @@ impl LinkoraContract {
         recipient: Address,
     ) {
         assert!(amount > 0, "must be positive");
+        recipient: Address,
+        pool_id: Symbol,
+        amount: i128,
+    ) {
+    pub fn pool_withdraw(env: Env, recipient: Address, pool_id: Symbol, amount: i128) {
+        assert!(amount > 0, "withdrawal amount must be positive");
+        recipient.require_auth();
         let key = (POOLS, pool_id.clone());
         let mut pool: Pool = env
             .storage()
@@ -615,6 +631,7 @@ impl LinkoraContract {
     pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
         Self::require_admin(&env);
         env.deployer()
+            .update_wasm_hash(new_wasm_hash.clone());
             .update_current_contract_wasm(new_wasm_hash.clone());
         ContractUpgraded { new_wasm_hash }.publish(&env);
     }

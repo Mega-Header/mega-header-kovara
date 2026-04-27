@@ -35,6 +35,16 @@ Emitted when a user follows another user.
   - `follower`: `Address`
   - `followee`: `Address`
 
+### Unfollow
+Emitted when a user unfollows another user.
+
+- **Topic 0**: `Linkora`
+- **Topic 1**: `unfollow`
+- **Topic 2**: `v1`
+- **Data Payload**: `UnfollowEvent`
+  - `follower`: `Address`
+  - `followee`: `Address`
+
 ### PostCreated
 Emitted when a new post is successfully created.
 

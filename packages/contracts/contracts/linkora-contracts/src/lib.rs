@@ -1,5 +1,7 @@
 #![no_std]
 use soroban_sdk::{
+    contract, contractevent, contractimpl, contracttype, symbol_short, token, Address, BytesN,
+    Env, Event, IntoVal, Map, String, Symbol, Vec, vec,
     contract, contractevent, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env, Map,
     String, Symbol, Vec,
 };
@@ -91,13 +93,26 @@ pub struct FollowEvent {
     pub followee: Address,
 }
 
-#[contractevent]
+#[contracttype]
 #[derive(Clone)]
 pub struct UnfollowEvent {
-    #[topic]
     pub follower: Address,
-    #[topic]
     pub followee: Address,
+}
+
+impl Event for UnfollowEvent {
+    fn topics(&self, env: &Env) -> Vec<soroban_sdk::Val> {
+        vec![
+            &env,
+            symbol_short!("Linkora").into_val(env),
+            symbol_short!("unfollow").into_val(env),
+            symbol_short!("v1").into_val(env),
+        ]
+    }
+
+    fn data(&self, env: &Env) -> soroban_sdk::Val {
+        self.clone().into_val(env)
+    }
 }
 
 #[contractevent]
@@ -322,9 +337,10 @@ impl LinkoraContract {
                     .set(&followers_key, &followers_list);
                 Self::bump(&env, &followers_key);
             }
-        }
 
-        UnfollowEvent { follower, followee }.publish(&env);
+            env.events()
+                .publish_event(&UnfollowEvent { follower, followee });
+        }
     }
 
     pub fn get_following(env: Env, user: Address) -> Vec<Address> {

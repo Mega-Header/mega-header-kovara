@@ -3,9 +3,9 @@
 use super::*;
 use soroban_sdk::{
     symbol_short,
-    testutils::{Address as _, Ledger},
+    testutils::{Address as _, Events as _, Ledger},
     token::{Client as TokenClient, StellarAssetClient},
-    vec, Address, Env, String,
+    vec, Address, Env, IntoVal, String,
 };
 
 fn setup_token(env: &Env, admin: &Address) -> Address {
@@ -14,7 +14,7 @@ fn setup_token(env: &Env, admin: &Address) -> Address {
     token_id.address()
 }
 
-fn setup_contract(env: &Env) -> (LinkoraContractClient, Address, Address) {
+fn setup_contract(env: &Env) -> (LinkoraContractClient<'_>, Address, Address) {
     let contract_id = env.register(LinkoraContract, ());
     let client = LinkoraContractClient::new(env, &contract_id);
     let admin = Address::generate(env);
@@ -106,7 +106,11 @@ fn test_post_count() {
 fn test_follow_and_unfollow() {
     let env = Env::default();
     env.mock_all_auths();
-    let (client, _, _) = setup_contract(&env);
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.initialize(&admin, &treasury, &0);
 
     let alice = Address::generate(&env);
     let bob = Address::generate(&env);
@@ -115,6 +119,31 @@ fn test_follow_and_unfollow() {
     assert_eq!(client.get_followers(&bob).len(), 1);
 
     client.unfollow(&alice, &bob);
+    let expected_events = vec![
+        &env,
+        (
+            contract_id.clone(),
+            vec![
+                &env,
+                symbol_short!("Linkora").into_val(&env),
+                symbol_short!("unfollow").into_val(&env),
+                symbol_short!("v1").into_val(&env),
+            ],
+            UnfollowEvent {
+                follower: alice.clone(),
+                followee: bob.clone(),
+            }
+            .into_val(&env),
+        ),
+    ];
+    assert_eq!(env.events().all(), expected_events);
+
+    assert_eq!(client.get_following(&alice).len(), 0);
+    assert_eq!(client.get_followers(&bob).len(), 0);
+
+    client.unfollow(&alice, &bob);
+    assert_eq!(env.events().all().events().len(), 0);
+
     assert_eq!(client.get_following(&alice).len(), 0);
     assert_eq!(client.get_followers(&bob).len(), 0);
 }

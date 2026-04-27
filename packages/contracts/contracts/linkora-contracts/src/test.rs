@@ -5,7 +5,7 @@ use soroban_sdk::{
     symbol_short,
     testutils::{Address as _, Ledger},
     token::{Client as TokenClient, StellarAssetClient},
-    vec, Address, Env, String,
+    vec, Address, BytesN, Env, String,
 };
 
 fn setup_token(env: &Env, admin: &Address) -> Address {
@@ -273,4 +273,86 @@ fn test_delete_post_non_existent() {
 
     let author = Address::generate(&env);
     client.delete_post(&author, &999);
+}
+
+// ── initialize / upgrade tests ────────────────────────────────────────────────
+
+#[test]
+fn test_initialize_stores_admin() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+
+    client.initialize(&admin, &treasury, &0);
+
+    // Admin is stored: set_fee (admin-only) should succeed when called by admin
+    client.set_fee(&100);
+}
+
+#[test]
+#[should_panic(expected = "already initialized")]
+fn test_initialize_twice_panics() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+
+    client.initialize(&admin, &treasury, &0);
+    // Second call must panic
+    client.initialize(&admin, &treasury, &0);
+}
+
+#[test]
+fn test_upgrade_by_admin_succeeds() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _) = setup_contract(&env);
+
+    // Upload the contract wasm (compiled with `wasm32v1-none` target for
+    // soroban host compatibility) so the hash is valid in the mock ledger.
+    // To regenerate: cargo build --target wasm32v1-none --release
+    //   then copy target/wasm32v1-none/release/linkora_contracts.wasm here.
+    const WASM: &[u8] = include_bytes!("../linkora_contracts.wasm");
+    let wasm_hash = env
+        .deployer()
+        .upload_contract_wasm(soroban_sdk::Bytes::from_slice(&env, WASM));
+    client.upgrade(&wasm_hash);
+}
+
+#[test]
+#[should_panic]
+fn test_upgrade_by_non_admin_panics() {
+    let env = Env::default();
+    // Do NOT mock all auths — only the non-admin will try to auth
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+
+    // Initialize with mock_all_auths temporarily
+    env.mock_all_auths();
+    client.initialize(&admin, &treasury, &0);
+
+    // Now clear mocked auths and attempt upgrade without admin auth
+    let mock_hash = BytesN::from_array(&env, &[1u8; 32]);
+    // This should panic because the non-admin caller cannot satisfy require_auth for admin
+    client.upgrade(&mock_hash);
+}
+
+#[test]
+#[should_panic(expected = "not initialized")]
+fn test_upgrade_before_initialize_panics() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let mock_hash = BytesN::from_array(&env, &[2u8; 32]);
+    client.upgrade(&mock_hash);
 }

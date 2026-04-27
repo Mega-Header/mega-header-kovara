@@ -1,11 +1,13 @@
 #![cfg(test)]
 
+extern crate std;
+
 use super::*;
 use soroban_sdk::{
     symbol_short,
-    testutils::{Address as _, Ledger},
+    testutils::{Address as _, Events, Ledger},
     token::{Client as TokenClient, StellarAssetClient},
-    vec, Address, Env, String,
+    vec, Address, Env, Event, String,
 };
 
 fn setup_token(env: &Env, admin: &Address) -> Address {
@@ -290,6 +292,7 @@ fn test_delete_post_non_existent() {
 }
 
 #[test]
+fn test_pool_deposit_emits_event() {
 #[should_panic(expected = "content cannot be empty")]
 fn test_create_post_empty_content_panics() {
     let env = Env::default();
@@ -345,6 +348,10 @@ fn test_pool_deposit_zero_amount_panics() {
     env.mock_all_auths();
     let (client, admin, _) = setup_contract(&env);
 
+    let depositor = Address::generate(&env);
+    let token = setup_token(&env, &depositor);
+    let pool_id = symbol_short!("pool1");
+
     let pool_admin = Address::generate(&env);
     let depositor = Address::generate(&env);
     let token = setup_token(&env, &pool_admin);
@@ -355,6 +362,25 @@ fn test_pool_deposit_zero_amount_panics() {
         &admin,
         &pool_id,
         &token,
+        &vec![&env, admin.clone()],
+        &1,
+    );
+    client.pool_deposit(&depositor, &pool_id, &token, &500);
+
+    let contract_id = client.address.clone();
+    let expected = PoolDepositEvent {
+        depositor: depositor.clone(),
+        pool_id: pool_id.clone(),
+        amount: 500,
+    };
+    assert_eq!(
+        env.events().all().filter_by_contract(&contract_id),
+        std::vec![expected.to_xdr(&env, &contract_id)],
+    );
+}
+
+#[test]
+fn test_pool_withdraw_emits_event() {
         &vec![&env, pool_admin.clone()],
         &1,
     );
@@ -392,6 +418,11 @@ fn test_pool_deposit_valid_positive_amount_succeeds() {
     env.mock_all_auths();
     let (client, admin, _) = setup_contract(&env);
 
+    let depositor = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let token = setup_token(&env, &depositor);
+    let pool_id = symbol_short!("pool1");
+
     let pool_admin = Address::generate(&env);
     let depositor = Address::generate(&env);
     let token = setup_token(&env, &pool_admin);
@@ -428,6 +459,30 @@ fn test_pool_withdraw_insufficient_balance_panics() {
         &admin,
         &pool_id,
         &token,
+        &vec![&env, admin.clone()],
+        &1,
+    );
+    client.pool_deposit(&depositor, &pool_id, &token, &500);
+    client.pool_withdraw(&vec![&env, admin.clone()], &pool_id, &200, &recipient);
+
+    let contract_id = client.address.clone();
+    let expected_deposit = PoolDepositEvent {
+        depositor: depositor.clone(),
+        pool_id: pool_id.clone(),
+        amount: 500,
+    };
+    let expected_withdraw = PoolWithdrawEvent {
+        recipient: recipient.clone(),
+        pool_id: pool_id.clone(),
+        amount: 200,
+    };
+    assert_eq!(
+        env.events().all().filter_by_contract(&contract_id),
+        std::vec![
+            expected_deposit.to_xdr(&env, &contract_id),
+            expected_withdraw.to_xdr(&env, &contract_id),
+        ],
+    );
         &vec![&env, pool_admin.clone()],
         &1,
     );

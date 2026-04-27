@@ -1,7 +1,7 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env, String,
-    Symbol, Vec,
+    contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env, Map,
+    String, Symbol, Vec,
 };
 
 // ── Storage Keys ─────────────────────────────────────────────────────────────
@@ -59,7 +59,6 @@ pub struct Profile {
 #[derive(Clone)]
 pub struct Pool {
     pub token: Address,
-    pub balance8,
     pub balance: i128,
     pub admins: Vec<Address>,
 }
@@ -349,7 +348,7 @@ impl LinkoraContract {
             .storage()
             .persistent()
             .get(&key)
-         t exist");
+            .expect("post not found");
         assert!(post.author == author, "only author can delete post");
         env.storage().persistent().remove(&key);
         env.events().publish(
@@ -378,7 +377,7 @@ impl LinkoraContract {
         env.storage().persistent().set(&post_key, &post);
         Self::bump(&env, &post_key);
         env.storage().persistent().set(&like_key, &true);
-        Selike_key);
+        Self::bump(&env, &like_key);
     }
 
     pub fn get_like_count(env: Env, post_id: u64) -> u64 {
@@ -411,7 +410,7 @@ impl LinkoraContract {
         env.storage().persistent().set(&key, &post);
         Self::bump(&env, &key);
 
-        env.events().ph(
+        env.events().publish(
             (symbol_short!("Linkora"), symbol_short!("tip"), symbol_short!("v1")),
             TipEvent { tipper, post_id, amount },
         );
@@ -460,7 +459,12 @@ impl LinkoraContract {
         Self::bump(&env, &key);
     }
 
-    p, amount: i128) {
+    pub fn pool_withdraw(
+        env: Env,
+        recipient: Address,
+        pool_id: Symbol,
+        amount: i128,
+    ) {
         assert!(amount > 0, "withdrawal amount must be positive");
         recipient.require_auth();
         let key = (POOLS, pool_id);
@@ -533,7 +537,7 @@ impl LinkoraContract {
     pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
         Self::require_admin(&env);
         env.deployer()
-            .update_m_hash.clone());
+            .update_wasm_hash(new_wasm_hash.clone());
         env.events().publish(
             (symbol_short!("Linkora"), symbol_short!("upgraded"), symbol_short!("v1")),
             ContractUpgraded { new_wasm_hash },

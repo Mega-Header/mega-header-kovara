@@ -160,13 +160,27 @@ fn test_like_post() {
     let user = Address::generate(&env);
     let post_id = client.create_post(&author, &String::from_str(&env, "Like test"));
 
+    // First like: should emit LikePostEvent
     client.like_post(&user, &post_id);
+    let events = env.events().get();
+    let like_events: Vec<LikePostEvent> = events.iter()
+        .filter_map(|e| e.data::<LikePostEvent>(&env).ok())
+        .collect();
+    assert_eq!(like_events.len(), 1, "Should emit exactly one LikePostEvent on first like");
+    assert_eq!(like_events[0].user, user);
+    assert_eq!(like_events[0].post_id, post_id);
+
+    // Duplicate like: should not emit another event
+    client.like_post(&user, &post_id);
+    let events = env.events().get();
+    let like_events: Vec<LikePostEvent> = events.iter()
+        .filter_map(|e| e.data::<LikePostEvent>(&env).ok())
+        .collect();
+    assert_eq!(like_events.len(), 1, "Duplicate like should not emit another LikePostEvent");
+
+    // Verify state
     assert_eq!(client.get_like_count(&post_id), 1);
     assert!(client.has_liked(&user, &post_id));
-
-    // Duplicate like should not increment
-    client.like_post(&user, &post_id);
-    assert_eq!(client.get_like_count(&post_id), 1);
 }
 
 #[test]
@@ -279,6 +293,57 @@ fn test_delete_post_non_existent() {
 
 #[test]
 fn test_pool_deposit_emits_event() {
+#[should_panic(expected = "content cannot be empty")]
+fn test_create_post_empty_content_panics() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, author, _) = setup_contract(&env);
+
+    let empty_content = String::from_str(&env, "");
+    client.create_post(&author, &empty_content);
+}
+
+#[test]
+#[should_panic(expected = "content too long")]
+fn test_create_post_too_long_content_panics() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, author, _) = setup_contract(&env);
+
+    // Create a string of 281 characters
+    let mut long_content = String::from_str(&env, "");
+    for _ in 0..281 {
+        long_content.push_str(&env, "a");
+    }
+    client.create_post(&author, &long_content);
+}
+
+#[test]
+fn test_create_post_exactly_280_chars_succeeds() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, author, _) = setup_contract(&env);
+
+    // Create a string of exactly 280 characters
+    let mut content_280 = String::from_str(&env, "");
+    for _ in 0..280 {
+        content_280.push_str(&env, "a");
+    }
+    let post_id = client.create_post(&author, &content_280);
+    assert_eq!(post_id, 1);
+}
+
+#[test]
+fn test_create_post_one_char_succeeds() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, author, _) = setup_contract(&env);
+
+    let one_char = String::from_str(&env, "a");
+    let post_id = client.create_post(&author, &one_char);
+    assert_eq!(post_id, 1);
+#[should_panic(expected = "must be positive")]
+fn test_pool_deposit_zero_amount_panics() {
     let env = Env::default();
     env.mock_all_auths();
     let (client, admin, _) = setup_contract(&env);
@@ -287,6 +352,12 @@ fn test_pool_deposit_emits_event() {
     let token = setup_token(&env, &depositor);
     let pool_id = symbol_short!("pool1");
 
+    let pool_admin = Address::generate(&env);
+    let depositor = Address::generate(&env);
+    let token = setup_token(&env, &pool_admin);
+    StellarAssetClient::new(&env, &token).mint(&depositor, &1000);
+
+    let pool_id = symbol_short!("pooldzro");
     client.create_pool(
         &admin,
         &pool_id,
@@ -310,6 +381,39 @@ fn test_pool_deposit_emits_event() {
 
 #[test]
 fn test_pool_withdraw_emits_event() {
+        &vec![&env, pool_admin.clone()],
+        &1,
+    );
+
+    client.pool_deposit(&depositor, &pool_id, &token, &0);
+}
+
+#[test]
+#[should_panic(expected = "must be positive")]
+fn test_pool_deposit_negative_amount_panics() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let pool_admin = Address::generate(&env);
+    let depositor = Address::generate(&env);
+    let token = setup_token(&env, &pool_admin);
+    StellarAssetClient::new(&env, &token).mint(&depositor, &1000);
+
+    let pool_id = symbol_short!("pooldneg");
+    client.create_pool(
+        &admin,
+        &pool_id,
+        &token,
+        &vec![&env, pool_admin.clone()],
+        &1,
+    );
+
+    client.pool_deposit(&depositor, &pool_id, &token, &-1);
+}
+
+#[test]
+fn test_pool_deposit_valid_positive_amount_succeeds() {
     let env = Env::default();
     env.mock_all_auths();
     let (client, admin, _) = setup_contract(&env);
@@ -319,6 +423,38 @@ fn test_pool_withdraw_emits_event() {
     let token = setup_token(&env, &depositor);
     let pool_id = symbol_short!("pool1");
 
+    let pool_admin = Address::generate(&env);
+    let depositor = Address::generate(&env);
+    let token = setup_token(&env, &pool_admin);
+    StellarAssetClient::new(&env, &token).mint(&depositor, &1000);
+
+    let pool_id = symbol_short!("pooldpos");
+    client.create_pool(
+        &admin,
+        &pool_id,
+        &token,
+        &vec![&env, pool_admin.clone()],
+        &1,
+    );
+
+    client.pool_deposit(&depositor, &pool_id, &token, &100);
+    assert_eq!(client.get_pool(&pool_id).unwrap().balance, 100);
+}
+
+#[test]
+#[should_panic(expected = "insufficient pool balance")]
+fn test_pool_withdraw_insufficient_balance_panics() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let pool_admin = Address::generate(&env);
+    let depositor = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let token = setup_token(&env, &pool_admin);
+    StellarAssetClient::new(&env, &token).mint(&depositor, &1000);
+
+    let pool_id = symbol_short!("poolwlow");
     client.create_pool(
         &admin,
         &pool_id,
@@ -347,4 +483,24 @@ fn test_pool_withdraw_emits_event() {
             expected_withdraw.to_xdr(&env, &contract_id),
         ],
     );
+        &vec![&env, pool_admin.clone()],
+        &1,
+    );
+    client.pool_deposit(&depositor, &pool_id, &token, &500);
+
+    client.pool_withdraw(&vec![&env, pool_admin.clone()], &pool_id, &501, &recipient);
+}
+
+#[test]
+#[should_panic(expected = "pool not found")]
+fn test_pool_withdraw_missing_pool_panics() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _) = setup_contract(&env);
+
+    let signer = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let missing_pool_id = symbol_short!("nopool");
+
+    client.pool_withdraw(&vec![&env, signer], &missing_pool_id, &1, &recipient);
 }

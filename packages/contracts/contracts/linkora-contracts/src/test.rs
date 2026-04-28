@@ -297,3 +297,150 @@ fn test_delete_post_non_existent() {
     let author = Address::generate(&env);
     client.delete_post(&author, &999);
 }
+
+// ── Follow / unfollow reverse index symmetry (issue #138) ─────────────────────
+
+#[test]
+fn test_follow_populates_both_indexes() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _) = setup_contract(&env);
+
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+
+    client.follow(&alice, &bob);
+
+    let following = client.get_following(&alice);
+    assert_eq!(following.len(), 1);
+    assert_eq!(following.get(0).unwrap(), bob);
+
+    let followers = client.get_followers(&bob);
+    assert_eq!(followers.len(), 1);
+    assert_eq!(followers.get(0).unwrap(), alice);
+}
+
+#[test]
+fn test_unfollow_clears_both_indexes() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _) = setup_contract(&env);
+
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+
+    client.follow(&alice, &bob);
+    client.unfollow(&alice, &bob);
+
+    assert_eq!(client.get_following(&alice).len(), 0);
+    assert_eq!(client.get_followers(&bob).len(), 0);
+}
+
+#[test]
+fn test_follow_is_idempotent() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _) = setup_contract(&env);
+
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+
+    client.follow(&alice, &bob);
+    client.follow(&alice, &bob);
+
+    assert_eq!(client.get_following(&alice).len(), 1);
+    assert_eq!(client.get_followers(&bob).len(), 1);
+}
+
+#[test]
+fn test_unfollow_noop_on_nonexistent_relationship() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _) = setup_contract(&env);
+
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+
+    // No prior follow — must not panic and both indexes must stay empty.
+    client.unfollow(&alice, &bob);
+
+    assert_eq!(client.get_following(&alice).len(), 0);
+    assert_eq!(client.get_followers(&bob).len(), 0);
+}
+
+// ── Pool deposit / withdraw event emission (issue #137) ───────────────────────
+
+#[test]
+fn test_pool_deposit_emits_event() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let depositor = Address::generate(&env);
+    let token = setup_token(&env, &depositor);
+    let pool_id = symbol_short!("evt_dep");
+
+    client.create_pool(
+        &admin,
+        &pool_id,
+        &token,
+        &vec![&env, admin.clone()],
+        &1,
+    );
+
+    client.pool_deposit(&depositor, &pool_id, &token, &200);
+
+    let events = env.events().all();
+    let found = events.iter().any(|(_, topics, data)| {
+        // PoolDepositEvent topics: [depositor, pool_id]; data: amount
+        if topics.len() >= 2 {
+            let dep_match = topics.get(0).map(|t| t == depositor.clone().into_val(&env)).unwrap_or(false);
+            let pool_match = topics.get(1).map(|t| t == pool_id.clone().into_val(&env)).unwrap_or(false);
+            let amount_match = data == (200i128).into_val(&env);
+            dep_match && pool_match && amount_match
+        } else {
+            false
+        }
+    });
+    assert!(found, "PoolDepositEvent not found in emitted events");
+}
+
+#[test]
+fn test_pool_withdraw_emits_event() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let depositor = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let token = setup_token(&env, &depositor);
+    let pool_id = symbol_short!("evt_wd");
+
+    client.create_pool(
+        &admin,
+        &pool_id,
+        &token,
+        &vec![&env, admin.clone()],
+        &1,
+    );
+
+    client.pool_deposit(&depositor, &pool_id, &token, &500);
+
+    // Consume deposit events before withdrawal so we can isolate the withdraw event.
+    let _ = env.events().all();
+
+    client.pool_withdraw(&vec![&env, admin.clone()], &pool_id, &150, &recipient);
+
+    let events = env.events().all();
+    let found = events.iter().any(|(_, topics, data)| {
+        if topics.len() >= 2 {
+            let rec_match = topics.get(0).map(|t| t == recipient.clone().into_val(&env)).unwrap_or(false);
+            let pool_match = topics.get(1).map(|t| t == pool_id.clone().into_val(&env)).unwrap_or(false);
+            let amount_match = data == (150i128).into_val(&env);
+            rec_match && pool_match && amount_match
+        } else {
+            false
+        }
+    });
+    assert!(found, "PoolWithdrawEvent not found in emitted events");
+}

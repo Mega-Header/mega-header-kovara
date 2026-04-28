@@ -304,6 +304,71 @@ fn test_pool_withdraw_insufficient_signers() {
 }
 
 #[test]
+#[should_panic(expected = "unauthorized signer")]
+fn test_pool_withdraw_unauthorized_signer() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let pool_admin1 = Address::generate(&env);
+    let pool_admin2 = Address::generate(&env);
+    let unauthorized_user = Address::generate(&env);
+    let other_user = Address::generate(&env);
+    let token = setup_token(&env, &pool_admin1);
+    StellarAssetClient::new(&env, &token).mint(&other_user, &1000);
+
+    let pool_id = symbol_short!("pool2");
+    client.create_pool(
+        &admin,
+        &pool_id,
+        &token,
+        &vec![&env, pool_admin1.clone(), pool_admin2.clone()],
+        &2,
+    );
+    client.pool_deposit(&other_user, &pool_id, &token, &100);
+
+    // Try to withdraw with a signer not in pool.admins
+    client.pool_withdraw(
+        &vec![&env, pool_admin1.clone(), unauthorized_user.clone()],
+        &pool_id,
+        &50,
+        &other_user,
+    );
+}
+
+#[test]
+#[should_panic(expected = "low balance")]
+fn test_pool_withdraw_exceeds_balance() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let pool_admin1 = Address::generate(&env);
+    let pool_admin2 = Address::generate(&env);
+    let other_user = Address::generate(&env);
+    let token = setup_token(&env, &pool_admin1);
+    StellarAssetClient::new(&env, &token).mint(&other_user, &1000);
+
+    let pool_id = symbol_short!("pool3");
+    client.create_pool(
+        &admin,
+        &pool_id,
+        &token,
+        &vec![&env, pool_admin1.clone(), pool_admin2.clone()],
+        &1,
+    );
+    client.pool_deposit(&other_user, &pool_id, &token, &100);
+
+    // Try to withdraw more than available balance
+    client.pool_withdraw(
+        &vec![&env, pool_admin1.clone(), pool_admin2.clone()],
+        &pool_id,
+        &200,
+        &other_user,
+    );
+}
+
+#[test]
 fn test_sequential_posts() {
     let env = Env::default();
     env.mock_all_auths();

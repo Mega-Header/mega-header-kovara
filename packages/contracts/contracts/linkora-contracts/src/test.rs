@@ -368,6 +368,92 @@ fn test_unfollow_noop_on_nonexistent_relationship() {
     assert_eq!(client.get_followers(&bob).len(), 0);
 }
 
+// ── Initialize re-initialization guard + set_fee / set_treasury (issue #125) ──
+
+#[test]
+#[should_panic(expected = "already initialized")]
+fn test_initialize_already_initialized_panics() {
+    let env = Env::default();
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+
+    client.initialize(&admin, &treasury, &0);
+    // Second call must panic with "already initialized".
+    client.initialize(&admin, &treasury, &0);
+}
+
+#[test]
+fn test_set_fee_updates_fee_bps() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _) = setup_contract(&env);
+
+    client.set_fee(&500);
+    assert_eq!(client.get_fee_bps(), 500);
+
+    // Can be updated multiple times.
+    client.set_fee(&0);
+    assert_eq!(client.get_fee_bps(), 0);
+}
+
+#[test]
+#[should_panic(expected = "invalid fee")]
+fn test_set_fee_too_high_panics() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _) = setup_contract(&env);
+
+    // 10_001 bps exceeds the 10_000 maximum — must panic with "invalid fee".
+    client.set_fee(&10_001);
+}
+
+#[test]
+fn test_set_treasury_updates_treasury() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, old_treasury) = setup_contract(&env);
+
+    let new_treasury = Address::generate(&env);
+    client.set_treasury(&new_treasury);
+
+    let stored = client.get_treasury().expect("treasury should be set");
+    assert_eq!(stored, new_treasury);
+    assert_ne!(stored, old_treasury);
+}
+
+#[test]
+#[should_panic]
+fn test_set_fee_non_admin_panics() {
+    let env = Env::default();
+    // Deliberately omit mock_all_auths so the admin require_auth check fails.
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.initialize(&admin, &treasury, &0);
+
+    // No auth is provided — admin.require_auth() inside set_fee must panic.
+    client.set_fee(&500);
+}
+
+#[test]
+#[should_panic]
+fn test_set_treasury_non_admin_panics() {
+    let env = Env::default();
+    // Deliberately omit mock_all_auths so the admin require_auth check fails.
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    client.initialize(&admin, &treasury, &0);
+
+    let new_treasury = Address::generate(&env);
+    // No auth is provided — admin.require_auth() inside set_treasury must panic.
+    client.set_treasury(&new_treasury);
+}
+
 // ── Pool deposit / withdraw event emission (issue #137) ───────────────────────
 
 #[test]

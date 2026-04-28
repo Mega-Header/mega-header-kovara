@@ -3,7 +3,7 @@
 use super::*;
 use soroban_sdk::{
     symbol_short,
-    testutils::{Address as _, Events, Ledger},
+    testutils::{storage::Persistent as _, Address as _, Events, Ledger},
     token::{Client as TokenClient, StellarAssetClient},
     vec, Address, BytesN, Env, String,
 };
@@ -493,4 +493,71 @@ fn test_upgrade_before_initialize_panics() {
 
     let mock_hash = BytesN::from_array(&env, &[2u8; 32]);
     client.upgrade(&mock_hash);
+}
+
+// ── Block / Unblock tests ─────────────────────────────────────────────────────
+
+#[test]
+fn test_unblock_user() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _) = setup_contract(&env);
+
+    let blocker = Address::generate(&env);
+    let blocked = Address::generate(&env);
+
+    client.block_user(&blocker, &blocked);
+    assert!(client.is_blocked(&blocker, &blocked));
+
+    client.unblock_user(&blocker, &blocked);
+    assert!(!client.is_blocked(&blocker, &blocked));
+}
+
+#[test]
+fn test_double_unblock_is_noop() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _) = setup_contract(&env);
+
+    let blocker = Address::generate(&env);
+    let blocked = Address::generate(&env);
+
+    // unblock without a prior block — must not panic
+    client.unblock_user(&blocker, &blocked);
+    // second unblock — also must not panic
+    client.unblock_user(&blocker, &blocked);
+}
+
+#[test]
+fn test_is_blocked_returns_false_for_never_blocked() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _) = setup_contract(&env);
+
+    let a = Address::generate(&env);
+    let b = Address::generate(&env);
+
+    assert!(!client.is_blocked(&a, &b));
+}
+
+#[test]
+fn test_block_user_bumps_ttl() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _) = setup_contract(&env);
+
+    let blocker = Address::generate(&env);
+    let blocked = Address::generate(&env);
+
+    client.block_user(&blocker, &blocked);
+
+    let key = (BLOCKS, blocker.clone());
+    let contract_id = client.address.clone();
+    let ttl = env.as_contract(&contract_id, || {
+        env.storage().persistent().get_ttl(&key)
+    });
+    assert!(
+        ttl >= LEDGER_THRESHOLD,
+        "block entry TTL {ttl} is below LEDGER_THRESHOLD {LEDGER_THRESHOLD}"
+    );
 }

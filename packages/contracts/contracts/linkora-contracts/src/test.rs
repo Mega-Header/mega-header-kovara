@@ -234,7 +234,8 @@ fn test_like_post_no_event_on_duplicate() {
     let like_count_after_new_user = client.get_like_count(&post_id);
 
     assert_eq!(
-        like_count_after_new_user, like_count_after_first + 1,
+        like_count_after_new_user,
+        like_count_after_first + 1,
         "like from new user should increment"
     );
 }

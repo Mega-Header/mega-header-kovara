@@ -112,6 +112,7 @@ pub struct TipEvent {
     #[topic]
     pub post_id: u64,
     pub amount: i128,
+    pub fee: i128,
 }
 
 #[contractevent]
@@ -132,6 +133,15 @@ pub struct PoolWithdrawEvent {
     #[topic]
     pub pool_id: Symbol,
     pub amount: i128,
+}
+
+#[contractevent]
+#[derive(Clone)]
+pub struct LikePostEvent {
+    #[topic]
+    pub user: Address,
+    #[topic]
+    pub post_id: u64,
 }
 
 #[contractevent]
@@ -450,6 +460,7 @@ impl LinkoraContract {
         Self::bump(&env, &post_key);
         env.storage().persistent().set(&like_key, &true);
         Self::bump(&env, &like_key);
+        LikePostEvent { user, post_id }.publish(&env);
     }
 
     pub fn get_like_count(env: Env, post_id: u64) -> u64 {
@@ -497,7 +508,13 @@ impl LinkoraContract {
         env.storage().persistent().set(&key, &post);
         Self::bump(&env, &key);
 
-        TipEvent { tipper, post_id, amount }.publish(&env);
+        TipEvent {
+            tipper,
+            post_id,
+            amount,
+            fee: fee_amount,
+        }
+        .publish(&env);
     }
 
     // ── Community Pool ────────────────────────────────────────────────────────
@@ -550,14 +567,19 @@ impl LinkoraContract {
 
         token::Client::new(&env, &token).transfer(
             &depositor,
-            &env.current_contract_address(),
+            env.current_contract_address(),
             &amount,
         );
         pool.balance += amount;
         env.storage().persistent().set(&key, &pool);
         Self::bump(&env, &key);
 
-        PoolDepositEvent { depositor, pool_id, amount }.publish(&env);
+        PoolDepositEvent {
+            depositor,
+            pool_id,
+            amount,
+        }
+        .publish(&env);
     }
 
     /// Withdraw from a pool. Requires `threshold` valid admin signatures.
@@ -595,7 +617,12 @@ impl LinkoraContract {
             &amount,
         );
 
-        PoolWithdrawEvent { recipient, pool_id, amount }.publish(&env);
+        PoolWithdrawEvent {
+            recipient,
+            pool_id,
+            amount,
+        }
+        .publish(&env);
     }
 
     pub fn get_pool(env: Env, pool_id: Symbol) -> Option<Pool> {

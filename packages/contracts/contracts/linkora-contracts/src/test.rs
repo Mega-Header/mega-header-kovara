@@ -3,7 +3,7 @@
 use super::*;
 use soroban_sdk::{
     symbol_short,
-    testutils::{Address as _, Events, Ledger},
+    testutils::{storage::Persistent as _, Address as _, Events, Ledger},
     token::{Client as TokenClient, StellarAssetClient},
     vec, Address, BytesN, Env, String,
 };

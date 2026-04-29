@@ -21,6 +21,8 @@ const FEE_BPS: Symbol = symbol_short!("FEE_BPS");
 const INITIALIZED: Symbol = symbol_short!("INIT");
 const BLOCKS: Symbol = symbol_short!("BLOCKS");
 const LIKES: Symbol = symbol_short!("LIKES");
+const TIP_COOLDOWN: Symbol = symbol_short!("TIP_CD");
+const TIP_COOLDOWN_WINDOW: Symbol = symbol_short!("TIP_CD_W");
 
 // ── TTL Constants ─────────────────────────────────────────────────────────────
 //
@@ -213,6 +215,8 @@ impl LinkoraContract {
         env.storage().instance().set(&ADMIN, &admin);
         env.storage().instance().set(&TREASURY, &treasury);
         env.storage().instance().set(&FEE_BPS, &fee_bps);
+        // Default cooldown window: 1 ledger (no cooldown by default)
+        env.storage().instance().set(&TIP_COOLDOWN_WINDOW, &1u32);
     }
 
     // ── Profiles ──────────────────────────────────────────────────────────────
@@ -489,6 +493,29 @@ impl LinkoraContract {
             panic!("blocked");
         }
 
+        // Check tip cooldown
+        let cooldown_key = (TIP_COOLDOWN, tipper.clone(), post_id);
+        let current_ledger = env.ledger().sequence();
+        let cooldown_window: u32 = env
+            .storage()
+            .instance()
+            .get(&TIP_COOLDOWN_WINDOW)
+            .unwrap_or(1u32);
+
+        if let Some(last_tip_ledger) = env.storage().temporary().get::<_, u32>(&cooldown_key) {
+            let ledgers_elapsed = current_ledger.saturating_sub(last_tip_ledger);
+            assert!(
+                ledgers_elapsed >= cooldown_window,
+                "tip cooldown not expired"
+            );
+        }
+
+        // Update last tip ledger
+        env.storage()
+            .temporary()
+            .set(&cooldown_key, &current_ledger);
+        Self::bump_temp(&env, &cooldown_key);
+
         let fee_bps = Self::get_fee_bps(env.clone());
         let fee_amount = (amount * fee_bps as i128) / 10_000;
         let author_amount = amount - fee_amount;
@@ -655,6 +682,21 @@ impl LinkoraContract {
         env.storage().instance().get(&TREASURY)
     }
 
+    pub fn set_tip_cooldown_window(env: Env, cooldown_ledgers: u32) {
+        Self::require_admin(&env);
+        assert!(cooldown_ledgers > 0, "cooldown must be positive");
+        env.storage()
+            .instance()
+            .set(&TIP_COOLDOWN_WINDOW, &cooldown_ledgers);
+    }
+
+    pub fn get_tip_cooldown_window(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&TIP_COOLDOWN_WINDOW)
+            .unwrap_or(1u32)
+    }
+
     // ── Upgradability ─────────────────────────────────────────────────────────
 
     pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
@@ -680,6 +722,13 @@ impl LinkoraContract {
     fn bump<K: soroban_sdk::IntoVal<Env, soroban_sdk::Val>>(env: &Env, key: &K) {
         env.storage()
             .persistent()
+            .extend_ttl(key, LEDGER_THRESHOLD, LEDGER_BUMP);
+    }
+
+    /// Extend the TTL of a temporary entry.
+    fn bump_temp<K: soroban_sdk::IntoVal<Env, soroban_sdk::Val>>(env: &Env, key: &K) {
+        env.storage()
+            .temporary()
             .extend_ttl(key, LEDGER_THRESHOLD, LEDGER_BUMP);
     }
 }

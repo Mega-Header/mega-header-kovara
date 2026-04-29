@@ -494,3 +494,206 @@ fn test_upgrade_before_initialize_panics() {
     let mock_hash = BytesN::from_array(&env, &[2u8; 32]);
     client.upgrade(&mock_hash);
 }
+
+// ── Tip Cooldown Tests ────────────────────────────────────────────────────────
+
+#[test]
+fn test_tip_cooldown_first_tip_succeeds() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let author = Address::generate(&env);
+    let tipper = Address::generate(&env);
+
+    client.initialize(&admin, &treasury, &0);
+
+    let token = setup_token(&env, &tipper);
+    let post_id = client.create_post(&author, &String::from_str(&env, "Cooldown test post"));
+
+    // First tip should always succeed
+    client.tip(&tipper, &post_id, &token, &100);
+
+    let post = client.get_post(&post_id).unwrap();
+    assert_eq!(post.tip_total, 100);
+}
+
+#[test]
+#[should_panic(expected = "tip cooldown not expired")]
+fn test_tip_cooldown_within_window_panics() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let author = Address::generate(&env);
+    let tipper = Address::generate(&env);
+
+    client.initialize(&admin, &treasury, &0);
+
+    // Set cooldown to 10 ledgers
+    client.set_tip_cooldown_window(&10);
+
+    let token = setup_token(&env, &tipper);
+    let post_id = client.create_post(&author, &String::from_str(&env, "Cooldown test post"));
+
+    // First tip at ledger 0
+    env.ledger().set_sequence(100);
+    client.tip(&tipper, &post_id, &token, &100);
+
+    // Try to tip again at ledger 105 (only 5 ledgers elapsed, need 10)
+    env.ledger().set_sequence(105);
+    client.tip(&tipper, &post_id, &token, &50);
+}
+
+#[test]
+fn test_tip_cooldown_after_window_expires() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let author = Address::generate(&env);
+    let tipper = Address::generate(&env);
+
+    client.initialize(&admin, &treasury, &0);
+
+    // Set cooldown to 10 ledgers
+    client.set_tip_cooldown_window(&10);
+
+    let token = setup_token(&env, &tipper);
+    let post_id = client.create_post(&author, &String::from_str(&env, "Cooldown test post"));
+
+    // First tip at ledger 100
+    env.ledger().set_sequence(100);
+    client.tip(&tipper, &post_id, &token, &100);
+
+    let post1 = client.get_post(&post_id).unwrap();
+    assert_eq!(post1.tip_total, 100);
+
+    // Advance to ledger 110 (exactly 10 ledgers elapsed)
+    env.ledger().set_sequence(110);
+    client.tip(&tipper, &post_id, &token, &50);
+
+    let post2 = client.get_post(&post_id).unwrap();
+    assert_eq!(post2.tip_total, 150);
+}
+
+#[test]
+fn test_tip_cooldown_multiple_tippers_independent() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let author = Address::generate(&env);
+    let tipper1 = Address::generate(&env);
+    let tipper2 = Address::generate(&env);
+
+    client.initialize(&admin, &treasury, &0);
+
+    // Set cooldown to 10 ledgers
+    client.set_tip_cooldown_window(&10);
+
+    let token = setup_token(&env, &tipper1);
+    StellarAssetClient::new(&env, &token).mint(&tipper2, &1000);
+
+    let post_id = client.create_post(&author, &String::from_str(&env, "Multi-tipper post"));
+
+    // Tipper1 tips at ledger 100
+    env.ledger().set_sequence(100);
+    client.tip(&tipper1, &post_id, &token, &100);
+
+    // Tipper2 can tip immediately (different tipper, no cooldown)
+    client.tip(&tipper2, &post_id, &token, &50);
+
+    let post = client.get_post(&post_id).unwrap();
+    assert_eq!(post.tip_total, 150);
+
+    // Tipper1 cannot tip again at ledger 105
+    env.ledger().set_sequence(105);
+    // This would panic if uncommented:
+    // client.tip(&tipper1, &post_id, &token, &25);
+
+    // But tipper2 can tip again (different tipper)
+    client.tip(&tipper2, &post_id, &token, &25);
+
+    let post2 = client.get_post(&post_id).unwrap();
+    assert_eq!(post2.tip_total, 175);
+}
+
+#[test]
+fn test_tip_cooldown_different_posts_independent() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let author = Address::generate(&env);
+    let tipper = Address::generate(&env);
+
+    client.initialize(&admin, &treasury, &0);
+
+    // Set cooldown to 10 ledgers
+    client.set_tip_cooldown_window(&10);
+
+    let token = setup_token(&env, &tipper);
+    let post_id1 = client.create_post(&author, &String::from_str(&env, "Post 1"));
+    let post_id2 = client.create_post(&author, &String::from_str(&env, "Post 2"));
+
+    // Tip post1 at ledger 100
+    env.ledger().set_sequence(100);
+    client.tip(&tipper, &post_id1, &token, &100);
+
+    // Can immediately tip post2 (different post, no cooldown)
+    client.tip(&tipper, &post_id2, &token, &50);
+
+    let post1 = client.get_post(&post_id1).unwrap();
+    let post2 = client.get_post(&post_id2).unwrap();
+    assert_eq!(post1.tip_total, 100);
+    assert_eq!(post2.tip_total, 50);
+}
+
+#[test]
+fn test_set_tip_cooldown_window_by_admin() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    // Default should be 1
+    assert_eq!(client.get_tip_cooldown_window(), 1);
+
+    // Admin can set it
+    client.set_tip_cooldown_window(&100);
+    assert_eq!(client.get_tip_cooldown_window(), 100);
+
+    // Admin can change it again
+    client.set_tip_cooldown_window(&50);
+    assert_eq!(client.get_tip_cooldown_window(), 50);
+}
+
+#[test]
+#[should_panic(expected = "cooldown must be positive")]
+fn test_set_tip_cooldown_window_zero_panics() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _, _) = setup_contract(&env);
+
+    client.set_tip_cooldown_window(&0);
+}

@@ -82,6 +82,25 @@ pub struct Pool {
     pub threshold: u32,
 }
 
+#[contracttype]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ProposalStatus {
+    Pending,
+    Executed,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct Proposal {
+    pub id: u64,
+    pub pool_id: Symbol,
+    pub proposer: Address,
+    pub amount: i128,
+    pub recipient: Address,
+    pub signers: Vec<Address>,
+    pub status: ProposalStatus,
+}
+
 // ── Events ────────────────────────────────────────────────────────────────────
 
 #[contractevent]
@@ -190,6 +209,39 @@ pub struct PostDeleted {
     pub post_id: u64,
     #[topic]
     pub author: Address,
+}
+
+#[contractevent]
+#[derive(Clone)]
+pub struct ProposalCreatedEvent {
+    #[topic]
+    pub pool_id: Symbol,
+    #[topic]
+    pub proposal_id: u64,
+    pub proposer: Address,
+    pub amount: i128,
+    pub recipient: Address,
+}
+
+#[contractevent]
+#[derive(Clone)]
+pub struct ProposalSignedEvent {
+    #[topic]
+    pub pool_id: Symbol,
+    #[topic]
+    pub proposal_id: u64,
+    pub signer: Address,
+}
+
+#[contractevent]
+#[derive(Clone)]
+pub struct ProposalExecutedEvent {
+    #[topic]
+    pub pool_id: Symbol,
+    #[topic]
+    pub proposal_id: u64,
+    pub amount: i128,
+    pub recipient: Address,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────

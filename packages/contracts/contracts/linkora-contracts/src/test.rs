@@ -138,6 +138,94 @@ fn test_tip_fee_split() {
 }
 
 #[test]
+#[should_panic(expected = "blocked")]
+fn test_tip_blocked_by_author() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let author = Address::generate(&env);
+    let tipper = Address::generate(&env);
+
+    client.initialize(&admin, &treasury, &250);
+
+    let token = setup_token(&env, &tipper);
+    let post_id = client.create_post(&author, &String::from_str(&env, "Test post"));
+
+    // Author blocks tipper
+    client.block_user(&author, &tipper);
+
+    // Tipper tries to tip - should panic with "blocked"
+    client.tip(&tipper, &post_id, &token, &1000);
+}
+
+#[test]
+fn test_tip_after_unblock() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let author = Address::generate(&env);
+    let tipper = Address::generate(&env);
+
+    client.initialize(&admin, &treasury, &250);
+
+    let token = setup_token(&env, &tipper);
+    let post_id = client.create_post(&author, &String::from_str(&env, "Test post"));
+
+    // Author blocks tipper
+    client.block_user(&author, &tipper);
+
+    // Author unblocks tipper
+    client.unblock_user(&author, &tipper);
+
+    // Tipper can now tip successfully
+    client.tip(&tipper, &post_id, &token, &1000);
+
+    let post = client.get_post(&post_id).unwrap();
+    assert_eq!(post.tip_total, 1000);
+}
+
+#[test]
+fn test_tip_non_blocked_user() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let author = Address::generate(&env);
+    let tipper1 = Address::generate(&env);
+    let tipper2 = Address::generate(&env);
+
+    client.initialize(&admin, &treasury, &250);
+
+    let token = setup_token(&env, &tipper1);
+    StellarAssetClient::new(&env, &token).mint(&tipper2, &5000);
+
+    let post_id = client.create_post(&author, &String::from_str(&env, "Test post"));
+
+    // Author blocks tipper1
+    client.block_user(&author, &tipper1);
+
+    // Tipper2 (not blocked) can tip successfully
+    client.tip(&tipper2, &post_id, &token, &500);
+
+    let post = client.get_post(&post_id).unwrap();
+    assert_eq!(post.tip_total, 500);
+}
+
+#[test]
 fn test_profile_count() {
     let env = Env::default();
     env.mock_all_auths();

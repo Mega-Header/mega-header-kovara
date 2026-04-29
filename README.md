@@ -291,3 +291,10 @@ Linkora-socials explores how Stellar can support more than payments by combining
 ## License
 
 This repository is licensed under the MIT License.
+
+## 🤝 Contributing
+Fork the repository and clone it to your local machine
+Create a new branch for your changes
+Make and test your updates following the project guidelines
+Commit and push your changes to your fork
+Open a Pull Request with a clear description

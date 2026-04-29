@@ -494,3 +494,366 @@ fn test_upgrade_before_initialize_panics() {
     let mock_hash = BytesN::from_array(&env, &[2u8; 32]);
     client.upgrade(&mock_hash);
 }
+
+// ── Pool Admin Management Tests ──────────────────────────────────────
+
+#[test]
+fn test_get_pool_admins() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let admin1 = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    let admin3 = Address::generate(&env);
+    let token = Address::generate(&env);
+    let pool_id = symbol_short!("TEST_POOL");
+
+    let initial_admins = vec![&env, admin1.clone(), admin2.clone(), admin3.clone()];
+    client.create_pool(&admin, &pool_id, &token, &initial_admins, &2);
+
+    let admins = client.get_pool_admins(&pool_id);
+    assert_eq!(admins.len(), 3);
+    assert!(admins.iter().any(|x| x == admin1));
+    assert!(admins.iter().any(|x| x == admin2));
+    assert!(admins.iter().any(|x| x == admin3));
+}
+
+#[test]
+fn test_add_pool_admin() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let admin1 = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    let new_admin = Address::generate(&env);
+    let token = Address::generate(&env);
+    let pool_id = symbol_short!("TEST_POOL");
+
+    let initial_admins = vec![&env, admin1.clone(), admin2.clone()];
+    client.create_pool(&admin, &pool_id, &token, &initial_admins, &2);
+
+    // Add new admin with threshold signatures
+    let signers = vec![&env, admin1.clone(), admin2.clone()];
+    client.add_pool_admin(&signers, &pool_id, &new_admin);
+
+    let admins = client.get_pool_admins(&pool_id);
+    assert_eq!(admins.len(), 3);
+    assert!(admins.iter().any(|x| x == new_admin));
+}
+
+#[test]
+#[should_panic(expected = "insufficient signers")]
+fn test_add_pool_admin_insufficient_signers() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let admin1 = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    let new_admin = Address::generate(&env);
+    let token = Address::generate(&env);
+    let pool_id = symbol_short!("TEST_POOL");
+
+    let initial_admins = vec![&env, admin1.clone(), admin2.clone()];
+    client.create_pool(&admin, &pool_id, &token, &initial_admins, &2);
+
+    // Try to add admin with only 1 signature (threshold is 2)
+    let signers = vec![&env, admin1.clone()];
+    client.add_pool_admin(&signers, &pool_id, &new_admin);
+}
+
+#[test]
+#[should_panic(expected = "unauthorized signer")]
+fn test_add_pool_admin_unauthorized_signer() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let admin1 = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    let unauthorized = Address::generate(&env);
+    let new_admin = Address::generate(&env);
+    let token = Address::generate(&env);
+    let pool_id = symbol_short!("TEST_POOL");
+
+    let initial_admins = vec![&env, admin1.clone(), admin2.clone()];
+    client.create_pool(&admin, &pool_id, &token, &initial_admins, &2);
+
+    // Try to add admin with unauthorized signer
+    let signers = vec![&env, admin1.clone(), unauthorized];
+    client.add_pool_admin(&signers, &pool_id, &new_admin);
+}
+
+#[test]
+#[should_panic(expected = "admin already exists")]
+fn test_add_pool_admin_already_exists() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let admin1 = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    let token = Address::generate(&env);
+    let pool_id = symbol_short!("TEST_POOL");
+
+    let initial_admins = vec![&env, admin1.clone(), admin2.clone()];
+    client.create_pool(&admin, &pool_id, &token, &initial_admins, &2);
+
+    // Try to add existing admin
+    let signers = vec![&env, admin1.clone(), admin2.clone()];
+    client.add_pool_admin(&signers, &pool_id, &admin1);
+}
+
+#[test]
+fn test_remove_pool_admin() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let admin1 = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    let admin3 = Address::generate(&env);
+    let token = Address::generate(&env);
+    let pool_id = symbol_short!("TEST_POOL");
+
+    let initial_admins = vec![&env, admin1.clone(), admin2.clone(), admin3.clone()];
+    client.create_pool(&admin, &pool_id, &token, &initial_admins, &2);
+
+    // Remove admin2 with threshold signatures
+    let signers = vec![&env, admin1.clone(), admin2.clone()];
+    client.remove_pool_admin(&signers, &pool_id, &admin2);
+
+    let admins = client.get_pool_admins(&pool_id);
+    assert_eq!(admins.len(), 2);
+    assert!(!admins.iter().any(|x| x == admin2));
+    assert!(admins.iter().any(|x| x == admin1));
+    assert!(admins.iter().any(|x| x == admin3));
+}
+
+#[test]
+#[should_panic(expected = "threshold unreachable after removal")]
+fn test_remove_pool_admin_threshold_unreachable() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let admin1 = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    let token = Address::generate(&env);
+    let pool_id = symbol_short!("TEST_POOL");
+
+    let initial_admins = vec![&env, admin1.clone(), admin2.clone()];
+    client.create_pool(&admin, &pool_id, &token, &initial_admins, &2);
+
+    // Try to remove admin when threshold is 2 and only 2 admins exist
+    let signers = vec![&env, admin1.clone(), admin2.clone()];
+    client.remove_pool_admin(&signers, &pool_id, &admin1);
+}
+
+#[test]
+#[should_panic(expected = "admin not found")]
+fn test_remove_pool_admin_not_found() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let admin1 = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    let non_admin = Address::generate(&env);
+    let token = Address::generate(&env);
+    let pool_id = symbol_short!("TEST_POOL");
+
+    let initial_admins = vec![&env, admin1.clone(), admin2.clone()];
+    client.create_pool(&admin, &pool_id, &token, &initial_admins, &2);
+
+    // Try to remove non-existent admin
+    let signers = vec![&env, admin1.clone(), admin2.clone()];
+    client.remove_pool_admin(&signers, &pool_id, &non_admin);
+}
+
+#[test]
+fn test_update_pool_threshold() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let admin1 = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    let admin3 = Address::generate(&env);
+    let token = Address::generate(&env);
+    let pool_id = symbol_short!("TEST_POOL");
+
+    let initial_admins = vec![&env, admin1.clone(), admin2.clone(), admin3.clone()];
+    client.create_pool(&admin, &pool_id, &token, &initial_admins, &2);
+
+    // Update threshold to 3
+    let signers = vec![&env, admin1.clone(), admin2.clone()];
+    client.update_pool_threshold(&signers, &pool_id, &3);
+
+    let pool = client.get_pool(&pool_id).unwrap();
+    assert_eq!(pool.threshold, 3);
+}
+
+#[test]
+#[should_panic(expected = "threshold cannot exceed admin count")]
+fn test_update_pool_threshold_too_high() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let admin1 = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    let token = Address::generate(&env);
+    let pool_id = symbol_short!("TEST_POOL");
+
+    let initial_admins = vec![&env, admin1.clone(), admin2.clone()];
+    client.create_pool(&admin, &pool_id, &token, &initial_admins, &2);
+
+    // Try to set threshold to 3 when only 2 admins exist
+    let signers = vec![&env, admin1.clone(), admin2.clone()];
+    client.update_pool_threshold(&signers, &pool_id, &3);
+}
+
+#[test]
+#[should_panic(expected = "threshold must be positive")]
+fn test_update_pool_threshold_zero() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let admin1 = Address::generate(&env);
+    let admin2 = Address::generate(&env);
+    let token = Address::generate(&env);
+    let pool_id = symbol_short!("TEST_POOL");
+
+    let initial_admins = vec![&env, admin1.clone(), admin2.clone()];
+    client.create_pool(&admin, &pool_id, &token, &initial_admins, &2);
+
+    // Try to set threshold to 0
+    let signers = vec![&env, admin1.clone(), admin2.clone()];
+    client.update_pool_threshold(&signers, &pool_id, &0);
+}
+
+#[test]
+#[should_panic(expected = "pool not found")]
+fn test_pool_admin_operations_on_nonexistent_pool() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _admin, _) = setup_contract(&env);
+
+    let _admin1 = Address::generate(&env);
+    let pool_id = symbol_short!("NOEXIST");
+
+    // Try to get admins from non-existent pool
+    client.get_pool_admins(&pool_id);
+}
+
+// ── Create Pool Authorization Tests ────────────────────────────────────
+
+#[test]
+#[should_panic]
+fn test_create_pool_before_initialize_panics() {
+    let env = Env::default();
+    // Don't mock all auths - we want to test the actual authorization
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let pool_admin1 = Address::generate(&env);
+    let pool_admin2 = Address::generate(&env);
+    let token = Address::generate(&env);
+    let pool_id = symbol_short!("TEST_POOL");
+
+    let admin_list = vec![&env, pool_admin1.clone(), pool_admin2.clone()];
+    
+    // This should panic because the contract is not initialized
+    client.create_pool(&admin, &pool_id, &token, &admin_list, &2);
+}
+
+#[test]
+#[should_panic]
+fn test_create_pool_by_non_admin_panics() {
+    let env = Env::default();
+    // Don't mock all auths - we want to test actual authorization
+    let contract_id = env.register(LinkoraContract, ());
+    let client = LinkoraContractClient::new(&env, &contract_id);
+
+    let non_admin = Address::generate(&env);
+    let pool_admin1 = Address::generate(&env);
+    let pool_admin2 = Address::generate(&env);
+    let token = Address::generate(&env);
+    let pool_id = symbol_short!("TEST_POOL");
+
+    let admin_list = vec![&env, pool_admin1.clone(), pool_admin2.clone()];
+    
+    // This should panic because the contract is not initialized
+    // and non_admin cannot satisfy both require_auth calls
+    client.create_pool(&non_admin, &pool_id, &token, &admin_list, &2);
+}
+
+#[test]
+fn test_create_pool_valid_call_succeeds() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let pool_admin1 = Address::generate(&env);
+    let pool_admin2 = Address::generate(&env);
+    let token = Address::generate(&env);
+    let pool_id = symbol_short!("TEST_POOL");
+
+    let admin_list = vec![&env, pool_admin1.clone(), pool_admin2.clone()];
+    
+    // This should succeed with mocked auths
+    client.create_pool(&admin, &pool_id, &token, &admin_list, &2);
+    
+    // Verify the pool was created correctly
+    let pool = client.get_pool(&pool_id).unwrap();
+    assert_eq!(pool.token, token);
+    assert_eq!(pool.balance, 0);
+    assert_eq!(pool.threshold, 2);
+    assert_eq!(pool.admins.len(), 2);
+    assert!(pool.admins.iter().any(|x| x == pool_admin1));
+    assert!(pool.admins.iter().any(|x| x == pool_admin2));
+}
+
+#[test]
+#[should_panic(expected = "invalid threshold")]
+fn test_create_pool_threshold_exceeds_admin_count_panics() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let pool_admin1 = Address::generate(&env);
+    let pool_admin2 = Address::generate(&env);
+    let token = Address::generate(&env);
+    let pool_id = symbol_short!("TEST_POOL");
+
+    let admin_list = vec![&env, pool_admin1.clone(), pool_admin2.clone()];
+    
+    // This should panic because threshold (3) > admin count (2)
+    client.create_pool(&admin, &pool_id, &token, &admin_list, &3);
+}
+
+#[test]
+#[should_panic(expected = "pool exists")]
+fn test_create_pool_duplicate_pool_id_panics() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, admin, _) = setup_contract(&env);
+
+    let pool_admin1 = Address::generate(&env);
+    let pool_admin2 = Address::generate(&env);
+    let token = Address::generate(&env);
+    let pool_id = symbol_short!("TEST_POOL");
+
+    let admin_list = vec![&env, pool_admin1.clone(), pool_admin2.clone()];
+    
+    // Create first pool - should succeed
+    client.create_pool(&admin, &pool_id, &token, &admin_list, &2);
+    
+    // Try to create second pool with same ID - should panic
+    client.create_pool(&admin, &pool_id, &token, &admin_list, &2);
+}

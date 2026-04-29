@@ -81,7 +81,44 @@ pnpm test:integration
 ```
 
 For more details on sandbox setup, see the [Integration Tests README](tests/README.md).
+## First Contribution Walkthrough
 
+### 1. Fork and Clone
+Fork the repository on GitHub, then clone your fork locally.
+
+```bash
+git clone git@github.com:YOUR-USERNAME/Linkora-social.git
+cd Linkora-social
+```
+
+### 2. Install Dependencies
+Install project dependencies and required tooling.
+
+```bash
+pnpm install
+cargo install --locked stellar-cli
+```
+
+### 3. Verify Setup
+Run tests to confirm your setup works.
+
+```bash
+pnpm --filter contracts test
+pnpm test:integration
+```
+
+### 4. Pick a Good First Issue
+Look for issues labeled `good first issue` or `documentation`, then comment on the issue before starting.
+
+### 5. Create a Branch and Make Changes
+Create a branch from `main`, make changes, and rerun tests.
+
+```bash
+git checkout -b docs/your-change
+```
+
+### 6. Open a Pull Request
+Push your branch and open a pull request against `main`.
 ## Adding a New Contract Function
 
 When adding a new feature or function to the Linkora contracts, follow these guidelines:
@@ -140,3 +177,24 @@ The `CI / Unit Tests` job runs `cargo test` inside `packages/contracts`. Your PR
 - The code does not compile (including `wasm32v1-none` target).
 
 The integration test suite (`integration.yml`) runs on a nightly schedule and on manual dispatch; it is not a required check for PRs but failures there should still be investigated promptly.
+
+## Code Owners
+
+This project uses a `CODEOWNERS` file to automatically assign reviewers based on the files changed in a pull request.
+
+### CODEOWNERS Format
+
+The `.github/CODEOWNERS` file maps directories to their maintainers:
+
+- `packages/contracts/` → Contract maintainers
+- `packages/web/` → Frontend maintainers
+- `docs/` → Documentation maintainers
+- `.github/` → All maintainers
+
+### How to Request Review from Specific Owner
+
+1. When you create a PR that touches files in the above directories, the corresponding maintainers will be automatically assigned as reviewers.
+
+2. If you need to request a review from a specific owner, you can mention them in your PR description: @Epta-Node/maintainers please review
+
+3. For urgent reviews or specific questions, you can also comment on the PR with a mention.

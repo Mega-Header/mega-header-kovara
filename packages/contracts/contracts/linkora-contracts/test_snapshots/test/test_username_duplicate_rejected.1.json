@@ -20,7 +20,7 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
                 },
                 {
-                  "string": "alice"
+                  "string": "shared_username"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
@@ -85,7 +85,7 @@
                       "symbol": "username"
                     },
                     "val": {
-                      "string": "alice"
+                      "string": "shared_username"
                     }
                   }
                 ]
@@ -109,7 +109,7 @@
                     "symbol": "UNAMES"
                   },
                   {
-                    "string": "alice"
+                    "string": "shared_username"
                   }
                 ]
               },

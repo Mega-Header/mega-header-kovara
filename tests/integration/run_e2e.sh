@@ -55,10 +55,13 @@ fi
 echo "[1/8] Starting local Stellar sandbox container..."
 stellar --config-dir "$CFG_DIR" container start local --name "$CONTAINER_NAME"
 
-# Wait for friendbot to be ready (up to 60 s).
-echo "  Waiting for friendbot..."
-for i in $(seq 1 60); do
-  if curl -sf "http://localhost:8000/friendbot" >/dev/null 2>&1; then
+# Wait for friendbot to be reachable (up to 90 s).
+# Accept any HTTP response — friendbot returns 400 without an addr param, which is fine.
+echo "  Waiting for sandbox to be ready..."
+for i in $(seq 1 90); do
+  status=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8000/friendbot" 2>/dev/null || true)
+  if [[ -n "$status" && "$status" != "000" ]]; then
+    echo "  Sandbox ready (friendbot HTTP $status)"
     break
   fi
   sleep 1

@@ -1,5 +1,7 @@
 #![cfg(test)]
 
+extern crate std;
+
 use super::*;
 use soroban_sdk::{
     symbol_short,
@@ -578,6 +580,7 @@ fn test_like_post() {
 
 #[test]
 fn test_like_post_emits_event_on_first_like() {
+    use soroban_sdk::{TryFromVal, IntoVal};
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, _) = setup_contract(&env);
@@ -588,14 +591,37 @@ fn test_like_post_emits_event_on_first_like() {
 
     client.like_post(&user, &post_id);
 
-    assert!(
-        !env.events().all().events().is_empty(),
-        "LikePostEvent should be emitted"
-    );
+    let events_container = env.events().all();
+    let all_events = events_container.events();
+    assert!(!all_events.is_empty(), "LikeEvent should be emitted");
+    let last_event = all_events.last().unwrap();
+
+    let client_val: soroban_sdk::Val = client.address.into_val(&env);
+    let expected_sc_val = soroban_sdk::xdr::ScVal::try_from_val(&env, &client_val).unwrap();
+    let soroban_sdk::xdr::ScVal::Address(soroban_sdk::xdr::ScAddress::Contract(expected_hash)) = expected_sc_val else { panic!("expected contract address") };
+    assert_eq!(last_event.contract_id.clone().unwrap(), expected_hash);
+
+    let soroban_sdk::xdr::ContractEventBody::V0(ref body) = last_event.body;
+    let topics = &body.topics;
+    assert_eq!(topics.len(), 3);
+
+    let get_topic = |index: usize| -> soroban_sdk::Val {
+        soroban_sdk::Val::try_from_val(&env, topics.get(index).unwrap()).unwrap()
+    };
+
+    assert_eq!(Symbol::try_from_val(&env, &get_topic(0)).unwrap(), Symbol::new(&env, "like_event"));
+    assert_eq!(u64::try_from_val(&env, &get_topic(1)).unwrap(), post_id);
+    assert_eq!(Address::try_from_val(&env, &get_topic(2)).unwrap(), user);
+    
+    let soroban_sdk::xdr::ScVal::Map(ref map) = body.data else { panic!("expected map") };
+    if let Some(ref m) = map {
+        assert!(m.0.is_empty());
+    }
 }
 
 #[test]
 fn test_like_post_no_event_on_duplicate() {
+    use soroban_sdk::TryFromVal;
     let env = Env::default();
     env.mock_all_auths();
     let (client, _, _) = setup_contract(&env);
@@ -605,10 +631,36 @@ fn test_like_post_no_event_on_duplicate() {
     let user2 = Address::generate(&env);
     let post_id = client.create_post(&author, &String::from_str(&env, "Duplicate event test"));
 
+    // User1 likes the post for the first time
     client.like_post(&user1, &post_id);
+
+    // Verify first LikeEvent immediately after call, before making other contract calls
+    {
+        let events_container = env.events().all();
+        let events = events_container.events();
+        assert_eq!(events.len(), 1, "First like should emit exactly 1 event");
+        let event = &events[0];
+        let soroban_sdk::xdr::ContractEventBody::V0(ref body) = event.body;
+        let get_topic = |index: usize| -> soroban_sdk::Val {
+            soroban_sdk::Val::try_from_val(&env, body.topics.get(index).unwrap()).unwrap()
+        };
+        assert_eq!(Symbol::try_from_val(&env, &get_topic(0)).unwrap(), Symbol::new(&env, "like_event"));
+        assert_eq!(u64::try_from_val(&env, &get_topic(1)).unwrap(), post_id);
+        assert_eq!(Address::try_from_val(&env, &get_topic(2)).unwrap(), user1);
+    }
+
     let like_count_after_first = client.get_like_count(&post_id);
 
+    // User1 likes the post again (duplicate)
     client.like_post(&user1, &post_id);
+
+    // Verify no new event is emitted for duplicate like (log is reset on duplicate call and remains empty since no event emitted)
+    {
+        let events_container = env.events().all();
+        let events = events_container.events();
+        assert!(events.is_empty(), "Duplicate like should not emit any event");
+    }
+
     let like_count_after_duplicate = client.get_like_count(&post_id);
 
     assert_eq!(
@@ -616,7 +668,24 @@ fn test_like_post_no_event_on_duplicate() {
         "duplicate like should not increment count"
     );
 
+    // User2 (new user) likes the post
     client.like_post(&user2, &post_id);
+
+    // Verify second LikeEvent immediately after call
+    {
+        let events_container = env.events().all();
+        let events = events_container.events();
+        assert_eq!(events.len(), 1, "New user like should emit exactly 1 event");
+        let event = &events[0];
+        let soroban_sdk::xdr::ContractEventBody::V0(ref body) = event.body;
+        let get_topic = |index: usize| -> soroban_sdk::Val {
+            soroban_sdk::Val::try_from_val(&env, body.topics.get(index).unwrap()).unwrap()
+        };
+        assert_eq!(Symbol::try_from_val(&env, &get_topic(0)).unwrap(), Symbol::new(&env, "like_event"));
+        assert_eq!(u64::try_from_val(&env, &get_topic(1)).unwrap(), post_id);
+        assert_eq!(Address::try_from_val(&env, &get_topic(2)).unwrap(), user2);
+    }
+
     let like_count_after_new_user = client.get_like_count(&post_id);
 
     assert_eq!(

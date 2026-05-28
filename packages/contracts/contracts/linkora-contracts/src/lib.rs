@@ -187,11 +187,11 @@ pub struct PoolWithdrawEvent {
 
 #[contractevent]
 #[derive(Clone)]
-pub struct LikePostEvent {
-    #[topic]
-    pub user: Address,
+pub struct LikeEvent {
     #[topic]
     pub post_id: u64,
+    #[topic]
+    pub user: Address,
 }
 
 #[contractevent]
@@ -662,7 +662,7 @@ impl LinkoraContract {
         Self::bump(&env, &post_key);
         env.storage().persistent().set(&like_key, &true);
         Self::bump(&env, &like_key);
-        LikePostEvent { user, post_id }.publish(&env);
+        LikeEvent { post_id, user }.publish(&env);
     }
 
     pub fn get_like_count(env: Env, post_id: u64) -> u64 {

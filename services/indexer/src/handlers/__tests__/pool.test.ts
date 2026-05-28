@@ -7,7 +7,18 @@
  *  - Database calls mocked with jest.mock
  */
 
-import { handlePoolDeposit, handlePoolWithdraw, PoolDepositEvent, PoolWithdrawEvent } from "../pool";
+import {
+  handlePoolCreated,
+  handlePoolDeposit,
+  handlePoolWithdraw,
+  handlePoolAdminAdded,
+  handlePoolAdminRemoved,
+  PoolCreatedEvent,
+  PoolDepositEvent,
+  PoolWithdrawEvent,
+  PoolAdminAddedEvent,
+  PoolAdminRemovedEvent,
+} from "../pool";
 import { Database } from "../../db";
 
 jest.mock("../../db");
@@ -26,6 +37,14 @@ function makeMockDb(): jest.Mocked<Database> {
     insertTip: jest.fn(),
     upsertPool: jest.fn(),
     adjustPoolBalance: jest.fn().mockResolvedValue(undefined),
+    insertPool: jest.fn().mockResolvedValue(undefined),
+    getPool: jest.fn().mockResolvedValue(null),
+    addPoolAdmin: jest.fn().mockResolvedValue(undefined),
+    removePoolAdmin: jest.fn().mockResolvedValue(undefined),
+    getProfile: jest.fn().mockResolvedValue(null),
+    listPosts: jest.fn().mockResolvedValue({ posts: [], total: 0 }),
+    getFollowers: jest.fn().mockResolvedValue({ followers: [], total: 0 }),
+    getFollowing: jest.fn().mockResolvedValue({ following: [], total: 0 }),
   } as jest.Mocked<Database>;
 }
 
@@ -294,5 +313,114 @@ describe("handlePoolWithdraw", () => {
     await expect(handlePoolWithdraw(db, event)).rejects.toThrow(
       "insufficient balance"
     );
+  });
+});
+
+// ── handlePoolCreated ─────────────────────────────────────────────────────────
+
+describe("handlePoolCreated", () => {
+  let db: jest.Mocked<Database>;
+
+  beforeEach(() => {
+    db = makeMockDb();
+  });
+
+  it("calls db.insertPool with correct initial state", async () => {
+    const event: PoolCreatedEvent = {
+      pool_id: "pool1",
+      token: "GTOKEN456",
+      admins: ["GADMIN1", "GADMIN2"],
+      threshold: 2,
+      ledger: 100,
+    };
+
+    await handlePoolCreated(db, event);
+
+    expect(db.insertPool).toHaveBeenCalledTimes(1);
+    expect(db.insertPool).toHaveBeenCalledWith({
+      pool_id: "pool1",
+      token: "GTOKEN456",
+      balance: BigInt(0),
+      admins: ["GADMIN1", "GADMIN2"],
+      threshold: 2,
+      created_ledger: 100,
+      updated_ledger: 100,
+    });
+  });
+
+  it("throws when pool_id is missing", async () => {
+    const event = { pool_id: "", token: "GTOKEN", admins: ["GA"], threshold: 1, ledger: 1 } as PoolCreatedEvent;
+    await expect(handlePoolCreated(db, event)).rejects.toThrow("pool_id");
+    expect(db.insertPool).not.toHaveBeenCalled();
+  });
+
+  it("throws when admins list is empty", async () => {
+    const event: PoolCreatedEvent = { pool_id: "p1", token: "GT", admins: [], threshold: 1, ledger: 1 };
+    await expect(handlePoolCreated(db, event)).rejects.toThrow("admin");
+    expect(db.insertPool).not.toHaveBeenCalled();
+  });
+
+  it("throws when threshold exceeds admins length", async () => {
+    const event: PoolCreatedEvent = { pool_id: "p1", token: "GT", admins: ["GA"], threshold: 2, ledger: 1 };
+    await expect(handlePoolCreated(db, event)).rejects.toThrow("threshold");
+    expect(db.insertPool).not.toHaveBeenCalled();
+  });
+});
+
+// ── handlePoolAdminAdded ──────────────────────────────────────────────────────
+
+describe("handlePoolAdminAdded", () => {
+  let db: jest.Mocked<Database>;
+
+  beforeEach(() => {
+    db = makeMockDb();
+  });
+
+  it("calls db.addPoolAdmin with correct arguments", async () => {
+    const event: PoolAdminAddedEvent = { pool_id: "pool1", new_admin: "GADMIN3", ledger: 200 };
+
+    await handlePoolAdminAdded(db, event);
+
+    expect(db.addPoolAdmin).toHaveBeenCalledTimes(1);
+    expect(db.addPoolAdmin).toHaveBeenCalledWith("pool1", "GADMIN3", 200);
+  });
+
+  it("throws when pool_id is missing", async () => {
+    const event = { pool_id: "", new_admin: "GA", ledger: 1 } as PoolAdminAddedEvent;
+    await expect(handlePoolAdminAdded(db, event)).rejects.toThrow("pool_id");
+  });
+
+  it("throws when new_admin is missing", async () => {
+    const event = { pool_id: "p1", new_admin: "", ledger: 1 } as PoolAdminAddedEvent;
+    await expect(handlePoolAdminAdded(db, event)).rejects.toThrow("new_admin");
+  });
+});
+
+// ── handlePoolAdminRemoved ────────────────────────────────────────────────────
+
+describe("handlePoolAdminRemoved", () => {
+  let db: jest.Mocked<Database>;
+
+  beforeEach(() => {
+    db = makeMockDb();
+  });
+
+  it("calls db.removePoolAdmin with correct arguments", async () => {
+    const event: PoolAdminRemovedEvent = { pool_id: "pool1", removed_admin: "GADMIN2", ledger: 300 };
+
+    await handlePoolAdminRemoved(db, event);
+
+    expect(db.removePoolAdmin).toHaveBeenCalledTimes(1);
+    expect(db.removePoolAdmin).toHaveBeenCalledWith("pool1", "GADMIN2", 300);
+  });
+
+  it("throws when pool_id is missing", async () => {
+    const event = { pool_id: "", removed_admin: "GA", ledger: 1 } as PoolAdminRemovedEvent;
+    await expect(handlePoolAdminRemoved(db, event)).rejects.toThrow("pool_id");
+  });
+
+  it("throws when removed_admin is missing", async () => {
+    const event = { pool_id: "p1", removed_admin: "", ledger: 1 } as PoolAdminRemovedEvent;
+    await expect(handlePoolAdminRemoved(db, event)).rejects.toThrow("removed_admin");
   });
 });

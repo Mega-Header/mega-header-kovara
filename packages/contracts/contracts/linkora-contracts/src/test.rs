@@ -1371,9 +1371,9 @@ fn test_get_followers_limit_50_returns_at_most_50() {
 }
 
 #[test]
-#[should_panic(expected = "limit exceeded")]
+#[should_panic(expected = "limit must be between 1 and 50")]
 fn test_get_followers_limit_51_panics() {
-    // limit of 51 must panic with "limit exceeded"
+    // limit of 51 must panic with "limit must be between 1 and 50"
     let env = Env::default();
     env.mock_all_auths();
     let contract_id = env.register(LinkoraContract, ());

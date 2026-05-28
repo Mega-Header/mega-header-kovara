@@ -1,5 +1,5 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { WalletProvider, useWallet } from '../WalletProvider';
+import { WalletProvider, useWallet } from '../../components/WalletProvider';
 import React from 'react';
 
 /**

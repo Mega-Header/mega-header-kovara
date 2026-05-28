@@ -483,7 +483,10 @@ impl LinkoraContract {
     }
 
     pub fn get_followers(env: Env, user: Address, offset: u32, limit: u32) -> Vec<Address> {
-        assert!(limit <= MAX_PAGE_LIMIT, "limit exceeded");
+        assert!(
+            limit > 0 && limit <= MAX_PAGE_LIMIT,
+            "limit must be between 1 and 50"
+        );
         let key = StorageKey::Followers(user);
         let list: Vec<Address> = env
             .storage()

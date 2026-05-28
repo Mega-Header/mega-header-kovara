@@ -1266,7 +1266,11 @@ fn test_get_following_offset_beyond_list_length_returns_empty() {
 
     // alice follows 1 person; offset=100 is way beyond the list
     let page = client.get_following(&alice, &100, &10);
-    assert_eq!(page.len(), 0, "offset beyond list length must return empty vec");
+    assert_eq!(
+        page.len(),
+        0,
+        "offset beyond list length must return empty vec"
+    );
 }
 
 #[test]
@@ -1347,7 +1351,11 @@ fn test_get_followers_offset_beyond_list_length_returns_empty() {
     client.follow(&bob, &alice); // bob follows alice → alice has 1 follower
 
     let page = client.get_followers(&alice, &100, &10);
-    assert_eq!(page.len(), 0, "offset beyond list length must return empty vec");
+    assert_eq!(
+        page.len(),
+        0,
+        "offset beyond list length must return empty vec"
+    );
 }
 
 #[test]
@@ -1620,7 +1628,10 @@ fn test_pool_withdraw_event_emitted() {
 
     let all_events = env.events().all();
     // At least one event must have been emitted after the withdrawal.
-    assert!(!all_events.events().is_empty(), "withdrawal must emit at least one event");
+    assert!(
+        !all_events.events().is_empty(),
+        "withdrawal must emit at least one event"
+    );
 }
 
 #[test]
@@ -1694,12 +1705,21 @@ fn test_tip_full_flow_no_fee() {
     let author_balance = TokenClient::new(&env, &token).balance(&author);
     let treasury_balance = TokenClient::new(&env, &token).balance(&treasury);
 
-    assert_eq!(author_balance, tip_amount, "author must receive full tip when fee_bps=0");
-    assert_eq!(treasury_balance, 0, "treasury must receive nothing when fee_bps=0");
+    assert_eq!(
+        author_balance, tip_amount,
+        "author must receive full tip when fee_bps=0"
+    );
+    assert_eq!(
+        treasury_balance, 0,
+        "treasury must receive nothing when fee_bps=0"
+    );
 
     // tip_total on the post must be incremented correctly
     let post = client.get_post(&post_id).unwrap();
-    assert_eq!(post.tip_total, tip_amount, "tip_total must equal the gross tip amount");
+    assert_eq!(
+        post.tip_total, tip_amount,
+        "tip_total must equal the gross tip amount"
+    );
 }
 
 #[test]
@@ -1814,8 +1834,14 @@ fn test_tip_fee_split_matches_fee_bps_config() {
     let expected_fee: i128 = 50;
     let expected_author: i128 = 1950;
 
-    assert_eq!(TokenClient::new(&env, &token).balance(&treasury), expected_fee);
-    assert_eq!(TokenClient::new(&env, &token).balance(&author), expected_author);
+    assert_eq!(
+        TokenClient::new(&env, &token).balance(&treasury),
+        expected_fee
+    );
+    assert_eq!(
+        TokenClient::new(&env, &token).balance(&author),
+        expected_author
+    );
 
     let post = client.get_post(&post_id).unwrap();
     assert_eq!(post.tip_total, tip_amount);

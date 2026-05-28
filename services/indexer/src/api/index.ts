@@ -1,5 +1,10 @@
 import express, { Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
+import { Database } from "../db";
+import { createProfilesRouter } from "./routes/profiles";
+import { createPostsRouter } from "./routes/posts";
+import { createFollowsRouter } from "./routes/follows";
+import { createPoolsRouter } from "./routes/pools";
 
 // ── Rate-limit configuration (all values are env-overridable) ────────────────
 
@@ -39,102 +44,115 @@ const apiLimiter = rateLimit({
   },
 });
 
-// ── Express app ───────────────────────────────────────────────────────────────
+// ── App factory ───────────────────────────────────────────────────────────────
 
-const app = express();
-app.use(express.json());
+export function createApp(db: Database): express.Application {
+  const app = express();
+  app.use(express.json());
 
-// Apply rate limiting to all /api routes.
-app.use("/api", apiLimiter);
+  // Apply rate limiting to all /api routes.
+  app.use("/api", apiLimiter);
 
-// ── Search endpoint ──────────────────────────────────────────────────────────
+  // ── Resource routes ────────────────────────────────────────────────────────
+  app.use("/api/profiles", createProfilesRouter(db));
+  app.use("/api/posts", createPostsRouter(db));
+  app.use("/api/follows", createFollowsRouter(db));
+  app.use("/api/pools", createPoolsRouter(db));
 
-interface SearchQuery {
-  query: string;
-  limit?: number;
-  offset?: number;
-}
+  // ── Search endpoint ──────────────────────────────────────────────────────────
 
-interface Post {
-  id: number;
-  author: string;
-  content: string;
-  tip_total: string;
-  timestamp: number;
-}
-
-interface SearchResponse {
-  posts: Post[];
-  total: number;
-  has_more: boolean;
-}
-
-interface ErrorResponse {
-  error: string;
-  code: string;
-}
-
-const MAX_LIMIT = 100;
-const DEFAULT_LIMIT = 20;
-const DEFAULT_OFFSET = 0;
-
-app.post(
-  "/api/search/posts",
-  (req: Request, res: Response<SearchResponse | ErrorResponse>): void => {
-    const body = req.body as Partial<SearchQuery>;
-
-    if (
-      body.query === undefined ||
-      body.query === null ||
-      typeof body.query !== "string" ||
-      body.query.trim() === ""
-    ) {
-      res.status(400).json({ error: "query is required", code: "INVALID_QUERY" });
-      return;
-    }
-
-    const limit =
-      body.limit !== undefined ? Number(body.limit) : DEFAULT_LIMIT;
-    const offset =
-      body.offset !== undefined ? Number(body.offset) : DEFAULT_OFFSET;
-
-    if (!Number.isInteger(limit) || limit < 1) {
-      res
-        .status(400)
-        .json({ error: "limit must be a positive integer", code: "INVALID_QUERY" });
-      return;
-    }
-
-    if (limit > MAX_LIMIT) {
-      res.status(400).json({
-        error: `limit cannot exceed ${MAX_LIMIT}`,
-        code: "LIMIT_EXCEEDED",
-      });
-      return;
-    }
-
-    if (!Number.isInteger(offset) || offset < 0) {
-      res
-        .status(400)
-        .json({ error: "offset must be a non-negative integer", code: "INVALID_QUERY" });
-      return;
-    }
-
-    // TODO: integrate with the search database.
-    // Stub response — replace with real query logic.
-    res.json({ posts: [], total: 0, has_more: false });
+  interface SearchQuery {
+    query: string;
+    limit?: number;
+    offset?: number;
   }
-);
 
-// ── Error handler ─────────────────────────────────────────────────────────────
+  interface Post {
+    id: number;
+    author: string;
+    content: string;
+    tip_total: string;
+    timestamp: number;
+  }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-app.use((err: Error, req: Request, res: Response, _next: NextFunction): void => {
-  console.error(err);
-  res.status(500).json({ error: "Internal server error", code: "INTERNAL_ERROR" });
-});
+  interface SearchResponse {
+    posts: Post[];
+    total: number;
+    has_more: boolean;
+  }
 
-export { app, apiLimiter };
+  interface ErrorResponse {
+    error: string;
+    code: string;
+  }
+
+  const MAX_LIMIT = 100;
+  const DEFAULT_LIMIT = 20;
+  const DEFAULT_OFFSET = 0;
+
+  app.post(
+    "/api/search/posts",
+    (req: Request, res: Response<SearchResponse | ErrorResponse>): void => {
+      const body = req.body as Partial<SearchQuery>;
+
+      if (
+        body.query === undefined ||
+        body.query === null ||
+        typeof body.query !== "string" ||
+        body.query.trim() === ""
+      ) {
+        res.status(400).json({ error: "query is required", code: "INVALID_QUERY" });
+        return;
+      }
+
+      const limit =
+        body.limit !== undefined ? Number(body.limit) : DEFAULT_LIMIT;
+      const offset =
+        body.offset !== undefined ? Number(body.offset) : DEFAULT_OFFSET;
+
+      if (!Number.isInteger(limit) || limit < 1) {
+        res
+          .status(400)
+          .json({ error: "limit must be a positive integer", code: "INVALID_QUERY" });
+        return;
+      }
+
+      if (limit > MAX_LIMIT) {
+        res.status(400).json({
+          error: `limit cannot exceed ${MAX_LIMIT}`,
+          code: "LIMIT_EXCEEDED",
+        });
+        return;
+      }
+
+      if (!Number.isInteger(offset) || offset < 0) {
+        res
+          .status(400)
+          .json({ error: "offset must be a non-negative integer", code: "INVALID_QUERY" });
+        return;
+      }
+
+      // TODO: integrate with the search database.
+      res.json({ posts: [], total: 0, has_more: false });
+    }
+  );
+
+  // ── Error handler ─────────────────────────────────────────────────────────────
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  app.use((err: Error, _req: Request, res: Response, _next: NextFunction): void => {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error", code: "INTERNAL_ERROR" });
+  });
+
+  return app;
+}
+
+// Back-compat: export a pre-built app and limiter for tests that import them directly.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const _stub = {} as any;
+export const app = createApp(_stub);
+export { apiLimiter };
 
 // ── Server bootstrap (skipped when imported in tests) ────────────────────────
 

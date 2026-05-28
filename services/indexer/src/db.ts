@@ -49,6 +49,9 @@ export interface Pool {
   pool_id: string;
   token: string;
   balance: bigint;
+  admins: string[];
+  threshold: number;
+  created_ledger: number;
   updated_ledger: number;
 }
 
@@ -76,4 +79,14 @@ export interface Database {
   // Pools
   upsertPool(pool: Pool): Promise<void>;
   adjustPoolBalance(pool_id: string, delta: bigint, ledger: number): Promise<void>;
+  insertPool(pool: Pool): Promise<void>;
+  getPool(pool_id: string): Promise<Pool | null>;
+  addPoolAdmin(pool_id: string, admin: string, ledger: number): Promise<void>;
+  removePoolAdmin(pool_id: string, admin: string, ledger: number): Promise<void>;
+
+  // Query methods used by the REST API
+  getProfile(address: string): Promise<Profile | null>;
+  listPosts(filters: { author?: string; limit: number; offset: number }): Promise<{ posts: Post[]; total: number }>;
+  getFollowers(address: string, limit: number, offset: number): Promise<{ followers: string[]; total: number }>;
+  getFollowing(address: string, limit: number, offset: number): Promise<{ following: string[]; total: number }>;
 }

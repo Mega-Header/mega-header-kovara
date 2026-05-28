@@ -34,6 +34,28 @@ cd Linkora-social
 pnpm install
 ```
 
+### Pre-commit Hooks
+
+This repository uses [Husky](https://typicode.github.io/husky/) and [lint-staged](https://github.com/lint-staged/lint-staged) to enforce code quality before every commit.
+
+After running `pnpm install`, Husky is installed automatically via the `prepare` script. No extra steps are required.
+
+**What runs on each commit:**
+
+| Files matched | Check |
+| --- | --- |
+| `*.ts`, `*.tsx` | `eslint --fix` then `prettier --write` |
+| `*.js`, `*.jsx`, `*.json`, `*.md`, `*.yaml`, `*.yml` | `prettier --write` |
+| `*.rs` | `cargo fmt --check` |
+
+If a staged file fails a lint check the commit is blocked. Fix the reported errors, re-stage the file, and commit again.
+
+To skip the hook in exceptional circumstances (not recommended):
+
+```bash
+git commit --no-verify -m "your message"
+```
+
 ### Building Contracts
 
 You can build the Soroban smart contracts from the repository root:

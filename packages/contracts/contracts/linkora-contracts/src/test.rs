@@ -1475,6 +1475,196 @@ fn test_create_post_content_281_chars_panics() {
     client.create_post(&author, &content);
 }
 
+// ── Pool withdrawal M-of-N integration tests ─────────────────────────────────
+
+/// Helper: create a pool with `n` admins and threshold `m`, deposit `balance`,
+/// and return (client, admin, pool_id, token, pool_admins).
+fn setup_pool<'a>(
+    env: &'a Env,
+    n: usize,
+    m: u32,
+    balance: i128,
+) -> (
+    LinkoraContractClient<'a>,
+    Address,
+    soroban_sdk::Symbol,
+    Address,
+    Vec<Address>,
+) {
+    let (client, admin, _) = setup_contract(env);
+
+    let mut pool_admins = Vec::new(env);
+    let token_owner = Address::generate(env);
+    let token = setup_token(env, &token_owner);
+
+    for _ in 0..n {
+        pool_admins.push_back(Address::generate(env));
+    }
+
+    let depositor = Address::generate(env);
+    StellarAssetClient::new(env, &token).mint(&depositor, &(balance + 1000));
+
+    let pool_id = symbol_short!("tpool");
+    client.create_pool(&admin, &pool_id, &token, &pool_admins, &m);
+
+    if balance > 0 {
+        client.pool_deposit(&depositor, &pool_id, &token, &balance);
+    }
+
+    (client, admin, pool_id, token, pool_admins)
+}
+
+#[test]
+fn test_pool_withdraw_exactly_threshold_2_of_3_succeeds() {
+    // 2-of-3: exactly the threshold number of admins (M < N) authorises a withdrawal.
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _, pool_id, token, admins) = setup_pool(&env, 3, 2, 300);
+    let recipient = Address::generate(&env);
+
+    // Sign with exactly 2 of the 3 admins.
+    let signers = vec![&env, admins.get(0).unwrap(), admins.get(1).unwrap()];
+    client.pool_withdraw(&signers, &pool_id, &100, &recipient);
+
+    assert_eq!(client.get_pool(&pool_id).unwrap().balance, 200);
+    // Recipient must have received the tokens.
+    assert_eq!(TokenClient::new(&env, &token).balance(&recipient), 100);
+}
+
+#[test]
+fn test_pool_withdraw_superset_of_threshold_also_succeeds() {
+    // Having more signers than the threshold is always acceptable.
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _, pool_id, token, admins) = setup_pool(&env, 5, 3, 500);
+    let recipient = Address::generate(&env);
+
+    // All 5 admins sign, threshold is only 3.
+    client.pool_withdraw(&admins, &pool_id, &200, &recipient);
+
+    assert_eq!(client.get_pool(&pool_id).unwrap().balance, 300);
+    assert_eq!(TokenClient::new(&env, &token).balance(&recipient), 200);
+}
+
+#[test]
+fn test_pool_withdraw_3_of_5_threshold_succeeds() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _, pool_id, token, admins) = setup_pool(&env, 5, 3, 600);
+    let recipient = Address::generate(&env);
+
+    let signers = vec![
+        &env,
+        admins.get(0).unwrap(),
+        admins.get(2).unwrap(),
+        admins.get(4).unwrap(),
+    ];
+    client.pool_withdraw(&signers, &pool_id, &150, &recipient);
+
+    assert_eq!(client.get_pool(&pool_id).unwrap().balance, 450);
+    assert_eq!(TokenClient::new(&env, &token).balance(&recipient), 150);
+}
+
+#[test]
+fn test_pool_withdraw_sequential_withdrawals_maintain_balance() {
+    // Multiple sequential withdrawals reduce the balance correctly.
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _, pool_id, token, admins) = setup_pool(&env, 3, 2, 1000);
+    let recipient = Address::generate(&env);
+
+    let signers = vec![&env, admins.get(0).unwrap(), admins.get(1).unwrap()];
+
+    client.pool_withdraw(&signers, &pool_id, &300, &recipient);
+    assert_eq!(client.get_pool(&pool_id).unwrap().balance, 700);
+
+    client.pool_withdraw(&signers, &pool_id, &200, &recipient);
+    assert_eq!(client.get_pool(&pool_id).unwrap().balance, 500);
+
+    client.pool_withdraw(&signers, &pool_id, &500, &recipient);
+    assert_eq!(client.get_pool(&pool_id).unwrap().balance, 0);
+
+    assert_eq!(TokenClient::new(&env, &token).balance(&recipient), 1000);
+}
+
+#[test]
+fn test_pool_withdraw_exact_full_balance_succeeds() {
+    // Withdrawing the entire pool balance (boundary case) must succeed.
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _, pool_id, token, admins) = setup_pool(&env, 2, 2, 250);
+    let recipient = Address::generate(&env);
+
+    let signers = vec![&env, admins.get(0).unwrap(), admins.get(1).unwrap()];
+    client.pool_withdraw(&signers, &pool_id, &250, &recipient);
+
+    assert_eq!(client.get_pool(&pool_id).unwrap().balance, 0);
+    assert_eq!(TokenClient::new(&env, &token).balance(&recipient), 250);
+}
+
+#[test]
+fn test_pool_withdraw_event_emitted() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _, pool_id, _, admins) = setup_pool(&env, 2, 2, 400);
+    let recipient = Address::generate(&env);
+
+    let signers = vec![&env, admins.get(0).unwrap(), admins.get(1).unwrap()];
+    client.pool_withdraw(&signers, &pool_id, &100, &recipient);
+
+    let all_events = env.events().all();
+    // At least one event must have been emitted after the withdrawal.
+    assert!(!all_events.events().is_empty(), "withdrawal must emit at least one event");
+}
+
+#[test]
+#[should_panic(expected = "insufficient signers")]
+fn test_pool_withdraw_m_of_n_fewer_than_threshold_rejected() {
+    // With a 3-of-5 threshold, providing only 2 signers must fail.
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _, pool_id, _, admins) = setup_pool(&env, 5, 3, 300);
+    let recipient = Address::generate(&env);
+
+    let signers = vec![&env, admins.get(0).unwrap(), admins.get(1).unwrap()];
+    client.pool_withdraw(&signers, &pool_id, &100, &recipient);
+}
+
+#[test]
+#[should_panic(expected = "unauthorized signer")]
+fn test_pool_withdraw_m_of_n_non_admin_rejected() {
+    // Even if the count meets the threshold, a non-admin signer causes rejection.
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _, pool_id, _, admins) = setup_pool(&env, 3, 2, 300);
+    let recipient = Address::generate(&env);
+
+    let outsider = Address::generate(&env);
+    let signers = vec![&env, admins.get(0).unwrap(), outsider];
+    client.pool_withdraw(&signers, &pool_id, &100, &recipient);
+}
+
+#[test]
+#[should_panic(expected = "low balance")]
+fn test_pool_withdraw_m_of_n_exceeds_balance_rejected() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _, pool_id, _, admins) = setup_pool(&env, 3, 2, 100);
+    let recipient = Address::generate(&env);
+
+    let signers = vec![&env, admins.get(0).unwrap(), admins.get(1).unwrap()];
+    client.pool_withdraw(&signers, &pool_id, &101, &recipient);
+}
+
 // ── Issue #343: full tip flow integration tests ───────────────────────────────
 
 #[test]

@@ -38,6 +38,12 @@ const TIP_COOLDOWN_WINDOW: Symbol = symbol_short!("TIP_CD_W");
 const LEDGER_BUMP: u32 = 535_000;
 const LEDGER_THRESHOLD: u32 = 535_000 - 100;
 
+// ── Tip Cooldown ──────────────────────────────────────────────────────────────
+//
+// TIP_COOLDOWN_LEDGERS: default per-tipper per-post cooldown (~1 day at 5s/ledger).
+
+const TIP_COOLDOWN_LEDGERS: u32 = 17_280;
+
 // ── Pagination Limit ──────────────────────────────────────────────────────────
 
 const MAX_PAGE_LIMIT: u32 = 50;
@@ -343,8 +349,7 @@ impl LinkoraContract {
         env.storage().instance().set(&ADMIN, &admin);
         env.storage().instance().set(&TREASURY, &treasury);
         env.storage().instance().set(&FEE_BPS, &fee_bps);
-        // Default cooldown window: 1 ledger (no cooldown by default)
-        env.storage().instance().set(&TIP_COOLDOWN_WINDOW, &1u32);
+        env.storage().instance().set(&TIP_COOLDOWN_WINDOW, &TIP_COOLDOWN_LEDGERS);
     }
 
     // ── Profiles ──────────────────────────────────────────────────────────────

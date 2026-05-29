@@ -943,11 +943,7 @@ impl LinkoraContract {
         env.storage().persistent().set(&key, &pool);
         Self::bump(&env, &key);
 
-        PoolAdminAddedEvent {
-            pool_id,
-            new_admin,
-        }
-        .publish(&env);
+        PoolAdminAddedEvent { pool_id, new_admin }.publish(&env);
     }
 
     pub fn remove_pool_admin(env: Env, signers: Vec<Address>, pool_id: Symbol, admin: Address) {
@@ -985,11 +981,7 @@ impl LinkoraContract {
         env.storage().persistent().set(&key, &pool);
         Self::bump(&env, &key);
 
-        PoolAdminRemovedEvent {
-            pool_id,
-            admin,
-        }
-        .publish(&env);
+        PoolAdminRemovedEvent { pool_id, admin }.publish(&env);
     }
 
     pub fn update_pool_threshold(env: Env, signers: Vec<Address>, pool_id: Symbol, threshold: u32) {

@@ -1977,8 +1977,11 @@ fn test_pool_admin_added_event() {
     );
 
     // Verify event was emitted
-    assert!(!env.events().all().events().is_empty(), "PoolAdminAddedEvent should be emitted");
-    
+    assert!(
+        !env.events().all().events().is_empty(),
+        "PoolAdminAddedEvent should be emitted"
+    );
+
     // Verify admin was added
     let pool = client.get_pool(&pool_id).unwrap();
     assert_eq!(pool.admins.len(), 3);
@@ -2001,7 +2004,12 @@ fn test_pool_admin_removed_event() {
         &admin,
         &pool_id,
         &token,
-        &vec![&env, pool_admin1.clone(), pool_admin2.clone(), pool_admin3.clone()],
+        &vec![
+            &env,
+            pool_admin1.clone(),
+            pool_admin2.clone(),
+            pool_admin3.clone(),
+        ],
         &2,
     );
 
@@ -2012,8 +2020,11 @@ fn test_pool_admin_removed_event() {
     );
 
     // Verify event was emitted
-    assert!(!env.events().all().events().is_empty(), "PoolAdminRemovedEvent should be emitted");
-    
+    assert!(
+        !env.events().all().events().is_empty(),
+        "PoolAdminRemovedEvent should be emitted"
+    );
+
     // Verify admin was removed
     let pool = client.get_pool(&pool_id).unwrap();
     assert_eq!(pool.admins.len(), 2);
@@ -2046,8 +2057,11 @@ fn test_pool_threshold_updated_event() {
     );
 
     // Verify event was emitted
-    assert!(!env.events().all().events().is_empty(), "PoolThresholdUpdatedEvent should be emitted");
-    
+    assert!(
+        !env.events().all().events().is_empty(),
+        "PoolThresholdUpdatedEvent should be emitted"
+    );
+
     // Verify threshold was updated
     let pool = client.get_pool(&pool_id).unwrap();
     assert_eq!(pool.threshold, 1);

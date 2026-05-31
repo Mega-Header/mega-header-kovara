@@ -8,11 +8,6 @@ interface FormData {
   creatorToken: string;
 }
 
-interface ProfileData {
-  username: string;
-  creatorToken: string;
-}
-
 export default function ProfileEditPage() {
   const router = useRouter();
   const [formData, setFormData] = useState<FormData>({
@@ -72,9 +67,7 @@ export default function ProfileEditPage() {
     e.preventDefault();
 
     if (!validateUsername(formData.username)) {
-      setError(
-        "Username must be 3-32 characters, alphanumeric and underscores only"
-      );
+      setError("Username must be 3-32 characters, alphanumeric and underscores only");
       return;
     }
 
@@ -102,9 +95,7 @@ export default function ProfileEditPage() {
       }, 1000);
     } catch (err) {
       console.error("Failed to update profile:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to update profile"
-      );
+      setError(err instanceof Error ? err.message : "Failed to update profile");
     } finally {
       setSubmitting(false);
     }
@@ -149,11 +140,7 @@ export default function ProfileEditPage() {
         <h1 style={styles.title}>Edit Profile</h1>
 
         {error && <div style={styles.error}>{error}</div>}
-        {success && (
-          <div style={styles.success}>
-            Profile updated successfully!
-          </div>
-        )}
+        {success && <div style={styles.success}>Profile updated successfully!</div>}
 
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.formGroup}>
@@ -172,9 +159,7 @@ export default function ProfileEditPage() {
               maxLength={32}
               disabled={submitting}
             />
-            <p style={styles.helperText}>
-              3-32 characters, alphanumeric and underscores only
-            </p>
+            <p style={styles.helperText}>3-32 characters, alphanumeric and underscores only</p>
           </div>
 
           <div style={styles.formGroup}>

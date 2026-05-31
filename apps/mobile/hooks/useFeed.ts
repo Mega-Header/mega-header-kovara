@@ -60,7 +60,7 @@ async function fetchPostPage(cursor: number, limit: number): Promise<Post[]> {
   ];
 
   // Simulate network latency
-  await new Promise((r) => setTimeout(r, 400));
+  await new Promise<void>((resolve) => setTimeout(resolve, 400));
 
   // cursor is the last seen post id (0 = start from beginning)
   const startIndex = cursor === 0 ? 0 : ALL_POSTS.findIndex((p) => p.id === cursor) + 1;
@@ -97,7 +97,7 @@ export function useFeed(): UseFeedReturn {
       setPosts((prev) => (replace ? fetched : [...prev, ...fetched]));
       setHasMore(fetched.length >= PAGE_SIZE);
       if (fetched.length > 0) {
-        cursorRef.current = fetched[fetched.length - 1].id;
+        cursorRef.current = Number(fetched[fetched.length - 1].id);
       }
     } catch {
       setError("Failed to load posts. Please try again.");

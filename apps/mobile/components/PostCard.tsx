@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 
 export interface Post {
-  id: number;
+  id: number | string;
   author: string;
   username: string;
   content: string;
@@ -12,9 +12,22 @@ export interface Post {
   like_count: number;
 }
 
-interface PostCardProps {
+interface FeedPostCardProps {
   post: Post;
+  onPress?: () => void;
 }
+
+interface LegacyPostCardProps {
+  id: number | string;
+  author: string;
+  content: string;
+  timestamp: string | number;
+  likes?: number;
+  isLoading?: boolean;
+  onPress?: () => void;
+}
+
+type PostCardProps = FeedPostCardProps | LegacyPostCardProps;
 
 function formatTimestamp(ts: number): string {
   const diff = Math.floor(Date.now() / 1000) - ts;
@@ -25,30 +38,54 @@ function formatTimestamp(ts: number): string {
 }
 
 function shortAddress(address: string): string {
-  return `${address.slice(0, 6)}…${address.slice(-4)}`;
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-export function PostCard({ post }: PostCardProps) {
+function normalizePost(props: PostCardProps): { post: Post; timeLabel?: string } {
+  if ("post" in props) {
+    return { post: props.post };
+  }
+
+  return {
+    post: {
+      id: props.id,
+      author: props.author,
+      username: props.author,
+      content: props.content,
+      tip_total: 0,
+      timestamp: typeof props.timestamp === "number" ? props.timestamp : 0,
+      like_count: props.likes ?? 0,
+    },
+    timeLabel: typeof props.timestamp === "string" ? props.timestamp : undefined,
+  };
+}
+
+export function PostCard(props: PostCardProps) {
   const router = useRouter();
+  const { post, timeLabel } = normalizePost(props);
+  const onPress =
+    props.onPress ?? (() => router.push(`/post/${post.id}` as Parameters<typeof router.push>[0]));
+
+  if ("isLoading" in props && props.isLoading) {
+    return <PostCardSkeleton />;
+  }
 
   return (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => router.push(`/post/${post.id}` as Parameters<typeof router.push>[0])}
+      onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`Post by ${post.username}`}
     >
       <View style={styles.header}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {post.username.charAt(0).toUpperCase()}
-          </Text>
+          <Text style={styles.avatarText}>{post.username.charAt(0).toUpperCase()}</Text>
         </View>
         <View style={styles.meta}>
           <Text style={styles.username}>{post.username}</Text>
           <Text style={styles.address}>{shortAddress(post.author)}</Text>
         </View>
-        <Text style={styles.time}>{formatTimestamp(post.timestamp)}</Text>
+        <Text style={styles.time}>{timeLabel ?? formatTimestamp(post.timestamp)}</Text>
       </View>
 
       <Text style={styles.content}>{post.content}</Text>

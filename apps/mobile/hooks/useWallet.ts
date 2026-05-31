@@ -7,6 +7,7 @@
  * Must be rendered inside <WalletProvider> (added to the root layout).
  */
 import { useWalletContext } from "../context/WalletContext";
+import type { WalletInfo, WalletProviderKind, WalletState } from "../context/WalletContext";
 
 export interface UseWalletReturn {
   /** Stellar public key, or null when disconnected */
@@ -15,20 +16,42 @@ export interface UseWalletReturn {
   connected: boolean;
   /** Active network identifier (e.g. "TESTNET") */
   network: string | null;
+  /** Current connection state machine value */
+  state: WalletState;
+  /** Full wallet object */
+  wallet: WalletInfo;
+  /** Last connection error */
+  error: string | null;
   /** Initiate wallet connection */
-  connect: () => Promise<void>;
+  connect: (provider?: WalletProviderKind) => Promise<void>;
   /** Disconnect and clear persisted state */
   disconnect: () => Promise<void>;
+  /** Re-check persisted wallet state */
+  refresh: () => Promise<void>;
 }
 
 export function useWallet(): UseWalletReturn {
-  const { wallet, state, connect, disconnect } = useWalletContext();
+  const { wallet, state, error, connect, disconnect, refresh } = useWalletContext();
 
   return {
     address: wallet.address,
     connected: state === "connected",
     network: wallet.network,
+    state,
+    wallet,
+    error,
     connect,
     disconnect,
+    refresh,
   };
 }
+
+export {
+  WalletProvider,
+  WalletContext,
+  useWalletContext,
+  type WalletContextType,
+  type WalletInfo,
+  type WalletProviderKind,
+  type WalletState,
+} from "../context/WalletContext";

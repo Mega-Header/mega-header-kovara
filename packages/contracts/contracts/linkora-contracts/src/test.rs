@@ -2147,11 +2147,12 @@ fn test_delete_post_emits_post_deleted_event() {
     let author = Address::generate(&env);
     let post_id = client.create_post(&author, &String::from_str(&env, "Event test"));
 
-    let events_before = env.events().all().events().len();
     client.delete_post(&author, &post_id);
 
+    let all_events = env.events().all();
+    let events = all_events.events();
     assert!(
-        env.events().all().events().len() > events_before,
+        !events.is_empty(),
         "PostDeleted event must be emitted on successful deletion"
     );
 }

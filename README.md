@@ -26,6 +26,15 @@ The main contract in `packages/contracts/contracts/linkora-contracts` currently 
 
 These primitives provide a minimal base for experimenting with social-financial interactions on Soroban.
 
+## Documentation
+
+- **[System Architecture](./docs/ARCHITECTURE.md)** — High-level overview of system components, data flows, and technology choices
+- **[Design System](./docs/design/README.md)** — UI/UX specifications and brand identity
+- **[Mobile UI Spec](./docs/design/MOBILE_SPEC.md)** — Mobile screen inventory, components, tokens, and accessibility
+- **[Indexer Design](./docs/indexer/INDEXER_DESIGN.md)** — Event indexing strategy and API design
+- **[Mini Apps Developer Guide](./docs/mini-apps/DEVELOPER_GUIDE.md)** — How to build and submit a Linkora mini app
+- **[Mini Apps Bridge API](./docs/mini-apps/BRIDGE_API.md)** — Full bridge method reference with types and examples
+
 ## Repository Structure
 
 ```text

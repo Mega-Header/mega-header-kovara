@@ -8,19 +8,6 @@ React Native / Expo mobile app for the Linkora SocialFi platform on Stellar.
 
 See [docs/mobile/DEVELOPER_GUIDE.md](../../docs/mobile/DEVELOPER_GUIDE.md) for full setup instructions covering prerequisites, simulator setup, project structure, and EAS builds.
 
-## Design Specification
-
-See [docs/design/MOBILE_SPEC.md](../../docs/design/MOBILE_SPEC.md) for the full mobile UI design specification, including:
-
-- Screen inventory with wireframe descriptions
-- Navigation structure
-- Component library (PostCard, PoolCard, ProfileHeader, etc.)
-- Design token usage on mobile
-- Accessibility requirements (contrast ratios, touch targets)
-- Dark mode guidelines
-
-Design tokens are defined in [docs/design/tokens.json](../../docs/design/tokens.json).
-
 ## Tech Stack
 
 - [Expo](https://expo.dev) (React Native)

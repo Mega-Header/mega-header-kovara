@@ -1,10 +1,41 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
-    "build": { "outputs": ["dist/**", "target/**"] },
-    "dev": { "persistent": true, "cache": false },
-    "lint": {},
-    "test": {},
-    "format": {}
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "target/**", ".next/**", ".expo/**"]
+    },
+    "dev": {
+      "persistent": true,
+      "cache": false
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["^build"]
+    },
+    "test:integration": {
+      "cache": false
+    },
+    "format": {
+      "outputs": []
+    },
+    "linkora-mobile#build": {
+      "dependsOn": [],
+      "outputs": ["dist/**", ".expo/**"],
+      "cache": false
+    },
+    "linkora-mobile#dev": {
+      "persistent": true,
+      "cache": false
+    },
+    "linkora-mobile#lint": {
+      "dependsOn": []
+    },
+    "linkora-mobile#test": {
+      "dependsOn": [],
+      "cache": false
+    }
   }
 }

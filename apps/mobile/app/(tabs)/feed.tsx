@@ -1,12 +1,5 @@
 import React from "react";
-import {
-  FlatList,
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
-} from "react-native";
+import { FlatList, View, Text, StyleSheet, ActivityIndicator, RefreshControl } from "react-native";
 import { PostCard, PostCardSkeleton, Post } from "../../components/PostCard";
 import { useFeed } from "../../hooks/useFeed";
 
@@ -27,9 +20,7 @@ function EmptyState() {
     <View style={styles.center}>
       <Text style={styles.emptyIcon}>📭</Text>
       <Text style={styles.emptyTitle}>No posts yet</Text>
-      <Text style={styles.emptySubtitle}>
-        Be the first to post on Linkora!
-      </Text>
+      <Text style={styles.emptySubtitle}>Be the first to post on Linkora!</Text>
     </View>
   );
 }
@@ -43,7 +34,7 @@ function ErrorState({ message }: { message: string }) {
 }
 
 export default function FeedScreen() {
-  const { posts, loading, error, hasMore, loadMore, refresh } = useFeed();
+  const { posts, loading, error, loadMore, refresh } = useFeed();
 
   const isInitialLoad = loading && posts.length === 0;
 
@@ -69,11 +60,7 @@ export default function FeedScreen() {
       ListEmptyComponent={<EmptyState />}
       ListFooterComponent={
         loading && posts.length > 0 ? (
-          <ActivityIndicator
-            style={styles.footer}
-            color="#6366f1"
-            size="small"
-          />
+          <ActivityIndicator style={styles.footer} color="#6366f1" size="small" />
         ) : null
       }
       onEndReached={loadMore}

@@ -1,11 +1,5 @@
 import React from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useWallet } from "../../hooks/useWallet";
 
 export default function ProfileScreen() {
@@ -25,7 +19,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </>
       ) : (
-        <TouchableOpacity style={styles.button} onPress={connect}>
+        <TouchableOpacity style={styles.button} onPress={() => connect()}>
           <Text style={styles.buttonText}>Connect Wallet</Text>
         </TouchableOpacity>
       )}

@@ -6,9 +6,10 @@ Mini apps are single-page HTML/JS applications that run inside the Linkora mobil
 
 ## Available Examples
 
-| App | Description |
-|-----|-------------|
-| [`tip-jar/`](./tip-jar/) | Send XLM tips to any Linkora post by ID |
+| App                                  | Description                                                            |
+| ------------------------------------ | ---------------------------------------------------------------------- |
+| [`tip-jar/`](./tip-jar/)             | Send XLM tips to any Linkora post by ID                                |
+| [`creator-token/`](./creator-token/) | View a creator token balance and request a creator-token tip signature |
 
 ---
 
@@ -50,10 +51,11 @@ Every mini app must include a `linkora-manifest.json` at its root:
 
 ### Permissions
 
-| Permission | Description |
-|------------|-------------|
-| `wallet.getAddress` | Read the user's connected Stellar public key |
-| `wallet.signTransaction` | Request the user to sign a transaction XDR |
+| Permission               | Description                                                       |
+| ------------------------ | ----------------------------------------------------------------- |
+| `wallet.getAddress`      | Read the user's connected Stellar public key                      |
+| `wallet.signTransaction` | Request the user to sign a transaction XDR                        |
+| `profile.get`            | Read the active creator profile, including creator token metadata |
 
 ---
 
@@ -86,3 +88,21 @@ A reference mini app that demonstrates:
 3. Click **Send Tip** — the dev mock will simulate signing and submission.
 
 To use with a real wallet inside the Linkora app, load the mini app via the **Mini Apps** tab and grant the requested permissions.
+
+---
+
+## creator-token
+
+A reference mini app that demonstrates:
+
+- Reading creator token metadata via `LinkoraSDK.profile.get()`
+- Loading the connected wallet's token balance from Stellar Horizon
+- Requesting a tip signature via `LinkoraSDK.wallet.signTransaction()`
+
+### Setup
+
+1. Open `creator-token/index.html` in a browser (or serve it with `npx serve`).
+2. Review the loaded creator token balance.
+3. Enter a tip amount and click **Tip Creator**.
+
+The browser fallback mocks `LinkoraSDK.profile.get()` and wallet signing. Inside Linkora, the host-provided SDK is used after the mini app receives `profile.get`, `wallet.getAddress`, and `wallet.signTransaction` permissions.

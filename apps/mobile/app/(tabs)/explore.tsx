@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 
 import { PoolRow, PoolSearchResult } from "../../components/PoolRow";
 import { ProfileRow, ProfileSearchResult } from "../../components/ProfileRow";
 import { SearchBar } from "../../components/SearchBar";
+import { MiniAppIcon } from "../../components/MiniAppIcon";
+import { useInstalledApps } from "../../mini-apps/store";
 
 const DEBOUNCE_MS = 300;
 
@@ -96,6 +98,7 @@ export default function ExploreScreen() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { discoverable, install, loaded: miniAppsLoaded } = useInstalledApps();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -163,9 +166,44 @@ export default function ExploreScreen() {
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : !hasQuery ? (
-          <View style={styles.center}>
-            <Text style={styles.emptyTitle}>Search Linkora</Text>
-            <Text style={styles.emptyText}>Find creators and community pools.</Text>
+          <View>
+            <View style={styles.center}>
+              <Text style={styles.emptyTitle}>Search Linkora</Text>
+              <Text style={styles.emptyText}>Find creators and community pools.</Text>
+            </View>
+            {miniAppsLoaded && discoverable.length > 0 ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Available Mini Apps</Text>
+                <View style={styles.miniAppsContainer}>
+                  {discoverable.map((app) => (
+                    <View key={app.id} style={styles.discoveryCard}>
+                      <MiniAppIcon
+                        app={app}
+                        onPress={(a) => {
+                          install(a);
+                          Alert.alert("Installed", `${a.name} has been added to your mini apps.`);
+                        }}
+                      />
+                      <TouchableOpacity
+                        style={styles.installButton}
+                        onPress={async () => {
+                          await install(app);
+                          Alert.alert("Installed", `${app.name} has been added to your mini apps.`);
+                        }}
+                      >
+                        <Text style={styles.installButtonText}>Install</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : miniAppsLoaded ? (
+              <View style={styles.section}>
+                <View style={styles.center}>
+                  <Text style={styles.emptyText}>All mini apps are installed.</Text>
+                </View>
+              </View>
+            ) : null}
           </View>
         ) : !hasResults ? (
           <View style={styles.center}>
@@ -280,5 +318,29 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 4,
     textTransform: "uppercase",
+  },
+  miniAppsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: 12,
+    paddingBottom: 16,
+  },
+  discoveryCard: {
+    width: "30%",
+    alignItems: "center",
+    marginVertical: 8,
+    marginHorizontal: "1.5%",
+  },
+  installButton: {
+    marginTop: 4,
+    backgroundColor: "#6366f1",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  installButtonText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "700",
   },
 });

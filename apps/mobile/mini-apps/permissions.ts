@@ -2,7 +2,8 @@ export type BridgePermission =
   | "wallet.getAddress"
   | "wallet.sign"
   | "wallet.signTransaction"
-  | "profile.get";
+  | "profile.get"
+  | "post.create";
 
 export type BridgeErrorCode = "PermissionDenied" | "UserRejected" | "MethodUnavailable";
 

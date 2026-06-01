@@ -1,32 +1,70 @@
 import { Tabs, useRouter } from "expo-router";
 import { useEffect } from "react";
-import { Linking, StyleSheet, Text, TouchableOpacity } from "react-native";
+import { Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+import { NetworkProvider } from "../context/NetworkContext";
 import { WalletProvider } from "../context/WalletContext";
+import { useNetwork } from "../hooks/useNetwork";
 import { useWallet } from "../hooks/useWallet";
 import { parseDeepLink } from "../utils/deepLinks";
+import { ToastProvider } from "../context/ToastContext";
+import { useTheme } from "../theme/useTheme";
 
 function shortAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 function HeaderWalletAddress() {
+  const { theme } = useTheme();
   const router = useRouter();
   const { address, connected } = useWallet();
 
   return (
-    <TouchableOpacity
-      style={styles.headerWallet}
+      <TouchableOpacity
+      style={[
+        styles.headerWallet,
+        {
+          backgroundColor: theme.colors.surface.surface1,
+          borderColor: theme.colors.surface.border,
+        },
+      ]}
       onPress={() => router.push("/connect" as Parameters<typeof router.push>[0])}
       accessibilityRole="button"
       accessibilityLabel={
         connected && address ? `Connected wallet ${address}` : "Open wallet connection screen"
       }
     >
-      <Text style={styles.headerWalletText}>
+      <Text style={[styles.headerWalletText, { color: theme.colors.text.primary }]}>
         {connected && address ? shortAddress(address) : "Connect"}
       </Text>
     </TouchableOpacity>
+  );
+}
+
+function HeaderNetworkBadge() {
+  const router = useRouter();
+  const { network, isMainnet } = useNetwork();
+
+  return (
+    <TouchableOpacity
+      style={[styles.networkBadge, isMainnet && styles.networkBadgeMainnet]}
+      onPress={() => router.push("/settings" as Parameters<typeof router.push>[0])}
+      accessibilityRole="button"
+      accessibilityLabel={`Open network settings. Active network ${network.label}`}
+    >
+      <Text style={[styles.networkBadgeText, isMainnet && styles.networkBadgeTextMainnet]}>
+        {network.label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+function HeaderActions() {
+  return (
+    <View style={styles.headerActions}>
+      <HeaderNetworkBadge />
+      <HeaderWalletAddress />
+    </View>
   );
 }
 
@@ -46,6 +84,7 @@ function HeaderWalletAddress() {
  */
 export default function RootLayout() {
   const router = useRouter();
+  const { theme } = useTheme();
 
   useEffect(() => {
     let isMounted = true;
@@ -114,6 +153,10 @@ export default function RootLayout() {
         {/* Detail screens — hidden from tab bar */}
         <Tabs.Screen name="post/[id]" options={{ href: null, headerShown: true, title: "Post" }} />
         <Tabs.Screen
+          name="mini-app/[id]"
+          options={{ href: null, headerShown: true, title: "Mini App" }}
+        />
+        <Tabs.Screen
           name="profile/[address]"
           options={{ href: null, headerShown: true, title: "Profile" }}
         />
@@ -132,14 +175,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#1e293b",
     borderWidth: 1,
-    borderColor: "#334155",
   },
   headerWalletText: {
-    color: "#e2e8f0",
     fontSize: 12,
     fontWeight: "700",
     fontFamily: "monospace",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginRight: 12,
+  },
+  networkBadge: {
+    minHeight: 32,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0f172a",
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  networkBadgeMainnet: {
+    backgroundColor: "#3f1d1d",
+    borderColor: "#7f1d1d",
+  },
+  networkBadgeText: {
+    color: "#cbd5e1",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  networkBadgeTextMainnet: {
+    color: "#fecaca",
   },
 });

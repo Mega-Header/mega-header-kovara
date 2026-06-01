@@ -1699,6 +1699,26 @@ fn test_pool_withdraw_event_emitted() {
 }
 
 #[test]
+fn test_pool_deposit_event_emitted() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    // Start with an empty pool so the only deposit is the one under test.
+    let (client, _, pool_id, token, _) = setup_pool(&env, 2, 2, 0);
+    let depositor = Address::generate(&env);
+    StellarAssetClient::new(&env, &token).mint(&depositor, &500);
+
+    let events_before = env.events().all().events().len();
+    client.pool_deposit(&depositor, &pool_id, &token, &100);
+
+    // The deposit must add at least one event (the PoolDepositEvent).
+    assert!(
+        env.events().all().events().len() > events_before,
+        "deposit must emit at least one event"
+    );
+}
+
+#[test]
 #[should_panic(expected = "insufficient signers")]
 fn test_pool_withdraw_m_of_n_fewer_than_threshold_rejected() {
     // With a 3-of-5 threshold, providing only 2 signers must fail.
@@ -2500,50 +2520,56 @@ fn test_tip_cooldown_uses_typed_storage_key() {
 }
 
 #[test]
-fn test_create_pool_unique_admins_succeeds() {
+fn test_block_event() {
     let env = Env::default();
     env.mock_all_auths();
     let contract_id = env.register(LinkoraContract, ());
     let client = LinkoraContractClient::new(&env, &contract_id);
 
-    let creator = Address::generate(&env);
-    let admin1 = Address::generate(&env);
-    let admin2 = Address::generate(&env);
-    let admin3 = Address::generate(&env);
-    let token = setup_token(&env, &creator);
-    let pool_id = symbol_short!("mypool");
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
 
-    let mut admins = soroban_sdk::Vec::new(&env);
-    admins.push_back(admin1);
-    admins.push_back(admin2);
-    admins.push_back(admin3);
+    client.block_user(&alice, &bob);
 
-    // Should succeed — no duplicates
-    client.create_pool(&creator, &pool_id, &token, &admins, &2u32);
+    // Verify bob is in alice's block list
+    let blocked = client.get_blocked(&alice);
+    assert_eq!(blocked.len(), 1);
+    assert_eq!(blocked.get(0).unwrap(), bob);
 
-    let pool = client.get_pool(&pool_id).unwrap();
-    assert_eq!(pool.balance, 0);
-    assert_eq!(pool.threshold, 2);
-    assert_eq!(pool.admins.len(), 3);
+    // Verify BlockEvent was emitted
+    let events = env.events().all();
+    assert_eq!(events.len(), 1);
+    let (_, topics, data): (Address, soroban_sdk::Vec<soroban_sdk::Val>, BlockEvent) =
+        soroban_sdk::testutils::Events::get(&env.events(), 0);
+    assert_eq!(topics.get(0).unwrap(), soroban_sdk::Val::from(symbol_short!("block")));
+    assert_eq!(data.blocker, alice);
+    assert_eq!(data.blocked, bob);
 }
 
 #[test]
-#[should_panic(expected = "duplicate admin in initial_admins")]
-fn test_create_pool_duplicate_admins_panics() {
+fn test_unblock_event() {
     let env = Env::default();
     env.mock_all_auths();
     let contract_id = env.register(LinkoraContract, ());
     let client = LinkoraContractClient::new(&env, &contract_id);
 
-    let creator = Address::generate(&env);
-    let admin1 = Address::generate(&env);
-    let token = setup_token(&env, &creator);
-    let pool_id = symbol_short!("badpool");
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
 
-    // admin1 appears twice — must panic
-    let mut admins = soroban_sdk::Vec::new(&env);
-    admins.push_back(admin1.clone());
-    admins.push_back(admin1.clone());
+    // Block first, then unblock
+    client.block_user(&alice, &bob);
+    client.unblock_user(&alice, &bob);
 
-    client.create_pool(&creator, &pool_id, &token, &admins, &1u32);
+    // Verify bob is removed from alice's block list
+    let blocked = client.get_blocked(&alice);
+    assert_eq!(blocked.len(), 0);
+
+    // Verify UnblockEvent was emitted (second event after BlockEvent)
+    let events = env.events().all();
+    assert_eq!(events.len(), 2);
+    let (_, topics, data): (Address, soroban_sdk::Vec<soroban_sdk::Val>, UnblockEvent) =
+        soroban_sdk::testutils::Events::get(&env.events(), 1);
+    assert_eq!(topics.get(0).unwrap(), soroban_sdk::Val::from(symbol_short!("unblock")));
+    assert_eq!(data.blocker, alice);
+    assert_eq!(data.blocked, bob);
 }

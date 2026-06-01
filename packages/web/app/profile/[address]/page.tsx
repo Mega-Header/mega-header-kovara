@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { PostCard, Post } from "../../components/PostCard";
 import { TipModal } from "../../components/TipModal";
+import { ProfileHeader } from "../../components/ProfileHeader";
 
 // In a real app this comes from a wallet context / auth hook.
 const MOCK_CURRENT_USER = "";
@@ -171,7 +172,10 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [likedPosts, setLikedPosts] = useState<Set<number>>(new Set());
-  const [tippingPost, setTippingPost] = useState<{ id: number; author: string } | null>(null);
+  const [tippingPost, setTippingPost] = useState<{
+    id: number;
+    author: string;
+  } | null>(null);
   const [followState, setFollowState] = useState<FollowState>("not_following");
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -199,7 +203,8 @@ export default function ProfilePage() {
           id: 1,
           author: address,
           username: "creator_alice",
-          content: "Just launched my creator token on Linkora! 🎉 Excited to build something real here.",
+          content:
+            "Just launched my creator token on Linkora! 🎉 Excited to build something real here.",
           tip_total: 120_000_000,
           timestamp: Date.now() / 1000 - 7200,
           like_count: 31,
@@ -208,7 +213,8 @@ export default function ProfilePage() {
           id: 2,
           author: address,
           username: "creator_alice",
-          content: "The Stellar network makes micropayments actually viable for creator economies.",
+          content:
+            "The Stellar network makes micropayments actually viable for creator economies.",
           tip_total: 45_000_000,
           timestamp: Date.now() / 1000 - 86_400,
           like_count: 18,
@@ -228,21 +234,27 @@ export default function ProfilePage() {
     setTimeout(() => setFollowState("not_following"), 600);
   }, []);
 
-  const handleLike = useCallback((postId: number) => {
-    setLikedPosts((prev) => {
-      const next = new Set(prev);
-      if (next.has(postId)) next.delete(postId);
-      else next.add(postId);
-      return next;
-    });
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id === postId
-          ? { ...p, like_count: p.like_count + (likedPosts.has(postId) ? -1 : 1) }
-          : p
-      )
-    );
-  }, [likedPosts]);
+  const handleLike = useCallback(
+    (postId: number) => {
+      setLikedPosts((prev) => {
+        const next = new Set(prev);
+        if (next.has(postId)) next.delete(postId);
+        else next.add(postId);
+        return next;
+      });
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? {
+                ...p,
+                like_count: p.like_count + (likedPosts.has(postId) ? -1 : 1),
+              }
+            : p,
+        ),
+      );
+    },
+    [likedPosts],
+  );
 
   if (loading) {
     return (

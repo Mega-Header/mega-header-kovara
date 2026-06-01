@@ -36,6 +36,8 @@ describe("useFollowingFeed", () => {
     it("should return initial loading state", () => {
       const { result } = renderHook(() => useFollowingFeed(null));
 
+      // With null walletAddress, the useEffect sets loading=false synchronously during
+      // renderHook (RTL flushes effects in act). hasMore stays at its initial true value.
       expect(result.current).toEqual({
         posts: [],
         loading: expect.any(Boolean),
@@ -150,7 +152,7 @@ describe("useFollowingFeed", () => {
         ({ walletAddress }: { walletAddress: string | null }) => useFollowingFeed(walletAddress),
         {
           initialProps: { walletAddress: null },
-        }
+        },
       );
 
       await waitFor(() => {
@@ -171,7 +173,7 @@ describe("useFollowingFeed", () => {
         ({ walletAddress }: { walletAddress: string | null }) => useFollowingFeed(walletAddress),
         {
           initialProps: { walletAddress: mockWalletAddress },
-        }
+        },
       );
 
       await waitFor(() => {
@@ -225,7 +227,7 @@ describe("useFollowingFeed", () => {
       if (result.current.posts.length > 1) {
         for (let i = 0; i < result.current.posts.length - 1; i++) {
           expect(result.current.posts[i].timestamp).toBeGreaterThanOrEqual(
-            result.current.posts[i + 1].timestamp
+            result.current.posts[i + 1].timestamp,
           );
         }
       }

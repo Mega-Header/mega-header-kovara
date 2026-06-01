@@ -5,6 +5,8 @@ import { useRouter } from "expo-router";
 import { useTheme } from "../theme/useTheme";
 import { PostCardSkeleton as SharedPostCardSkeleton } from "./skeletons/PostCardSkeleton";
 
+export { SharedPostCardSkeleton as PostCardSkeleton };
+
 export interface Post {
   id: number | string;
   author: string;

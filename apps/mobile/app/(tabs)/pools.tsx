@@ -5,6 +5,8 @@ import { PoolCard } from "../../components/PoolCard";
 import { usePools } from "../../hooks/usePools";
 import { EmptyState } from "../../components/EmptyState";
 
+import { EmptyState } from "../../components/states/EmptyState";
+
 export default function PoolsScreen() {
   const router = useRouter();
   const { pools, loading, error, refresh } = usePools();

@@ -9,7 +9,8 @@ type PoolParams = {
   id: string;
 };
 
-export default function PoolDetailScreen() {
+export default function PoolDetailScreen(): JSX.Element {
+  const router = useRouter();
   const { id } = useLocalSearchParams<PoolParams>();
   const { wallet } = useWallet();
   const { pool, loading, error, isAdmin, refresh } = usePool(id || "");
@@ -118,15 +119,77 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingBottom: 48,
   },
-  label: {
+  subtitle: {
+    color: "#94a3b8",
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 18,
+  },
+  summaryCard: {
+    backgroundColor: "#111827",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#1f2937",
+    padding: 16,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  summaryLabel: {
+    color: "#94a3b8",
     fontSize: 12,
-    color: "#64748b",
     textTransform: "uppercase",
-    letterSpacing: 1,
+    letterSpacing: 0.6,
     marginBottom: 4,
   },
-  id: {
-    fontSize: 20,
+  summaryValue: {
+    color: "#f8fafc",
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  adminList: {
+    gap: 6,
+  },
+  adminAddress: {
+    color: "#e2e8f0",
+    fontSize: 12,
+    fontFamily: "monospace",
+  },
+  historyCard: {
+    backgroundColor: "#111827",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#1f2937",
+    padding: 16,
+    marginTop: 16,
+  },
+  historyHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 12,
+  },
+  historyTitle: {
+    color: "#f8fafc",
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  historyButton: {
+    minHeight: 36,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: "#0f172a",
+    borderWidth: 1,
+    borderColor: "#334155",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  historyButtonText: {
+    color: "#e2e8f0",
+    fontSize: 12,
     fontWeight: "700",
     color: "#f1f5f9",
     marginBottom: 24,
@@ -157,6 +220,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#cbd5e1",
     fontFamily: "monospace",
+    marginBottom: 4,
   },
   adminSection: {
     marginTop: 24,

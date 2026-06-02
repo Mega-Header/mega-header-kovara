@@ -1,56 +1,74 @@
 import { useCallback, useState } from "react";
 
+import { useToast } from "../context/ToastContext";
+import { useWallet } from "./useWallet";
 import { markFeedPostDeleted } from "./useFeed";
 
-const DELETE_POST_METHOD = "delete_post";
+interface DeletePostOptions {
+  postId: number | string;
+  author: string;
+}
 
-export interface UseDeletePostReturn {
+export interface UseDeletePostResult {
   deleting: boolean;
   error: string | null;
-  deletePost: (postId: string | number, author: string) => Promise<void>;
-  reset: () => void;
+  deletePost: (options: DeletePostOptions) => Promise<boolean>;
 }
 
-async function submitDeletePost(author: string, postId: string | number): Promise<void> {
-  if (!author) {
-    throw new Error("Connect your wallet before deleting this post.");
-  }
-
-  if (!postId) {
-    throw new Error("Post ID is required.");
-  }
-
-  // Replace this mock submitter with wallet signing/broadcast once the mobile
-  // Soroban transaction path is available. The contract method is delete_post.
-  await new Promise<void>((resolve) => setTimeout(resolve, 500));
-  const deletePostCall = { method: DELETE_POST_METHOD, author, postId: Number(postId) };
-  void deletePostCall;
+async function deletePostTransaction(author: string, postId: number | string): Promise<string> {
+  // Replace with the SDK-backed `delete_post` submission once mobile signing is wired.
+  await new Promise<void>((resolve) => setTimeout(resolve, 600));
+  return `delete_post:${author}:${postId}:${Date.now()}`;
 }
 
-export function useDeletePost(): UseDeletePostReturn {
+export function useDeletePost(): UseDeletePostResult {
+  const { address, connected } = useWallet();
+  const { showPending, showSuccess, showError } = useToast();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const deletePost = useCallback(async (postId: string | number, author: string) => {
-    setDeleting(true);
-    setError(null);
+  const deletePost = useCallback(
+    async ({ postId, author }: DeletePostOptions): Promise<boolean> => {
+      if (deleting) {
+        return false;
+      }
 
-    try {
-      await submitDeletePost(author, postId);
-      markFeedPostDeleted(postId);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to delete post.";
-      setError(message);
-      throw new Error(message);
-    } finally {
-      setDeleting(false);
-    }
-  }, []);
+      if (!connected || !address) {
+        const message = "Connect your wallet to delete this post.";
+        setError(message);
+        showError(message);
+        return false;
+      }
 
-  const reset = useCallback(() => {
-    setDeleting(false);
-    setError(null);
-  }, []);
+      if (address !== author) {
+        const message = "Only the post author can delete this post.";
+        setError(message);
+        showError(message);
+        return false;
+      }
 
-  return { deleting, error, deletePost, reset };
+      setDeleting(true);
+      setError(null);
+      showPending();
+
+      try {
+        const txHash = await deletePostTransaction(author, postId);
+        markFeedPostDeleted(String(postId));
+        showSuccess(txHash);
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to delete post.";
+        setError(message);
+        showError(message);
+        return false;
+      } finally {
+        setDeleting(false);
+      }
+    },
+    [address, connected, deleting, showError, showPending, showSuccess]
+  );
+
+  return { deleting, error, deletePost };
 }
+
+export { deletePostTransaction };

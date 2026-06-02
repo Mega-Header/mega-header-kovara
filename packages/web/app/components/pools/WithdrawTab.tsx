@@ -2,7 +2,11 @@
 
 import { useState, useCallback, useMemo, type CSSProperties } from "react";
 import type { PoolData, TokenMeta } from "../../hooks/usePools";
-import { formatTokenAmount, parseTokenAmount, STELLAR_KEY_RE } from "../../hooks/usePools";
+import {
+  formatTokenAmount,
+  parseTokenAmount,
+  STELLAR_KEY_RE,
+} from "../../hooks/usePools";
 import { useWithdraw } from "../../hooks/usePoolContract";
 import { TxStatusBanner } from "./TxStatusBanner";
 import { ThresholdBadge } from "./ThresholdBadge";
@@ -16,7 +20,12 @@ interface WithdrawTabProps {
 
 const AMOUNT_RE = /^\d*\.?\d*$/;
 
-export function WithdrawTab({ pool, tokenMeta, currentUser, onSuccess }: WithdrawTabProps) {
+export function WithdrawTab({
+  pool,
+  tokenMeta,
+  currentUser,
+  onSuccess,
+}: WithdrawTabProps) {
   const [amount, setAmount] = useState("");
   const [recipient, setRecipient] = useState(currentUser);
   const [amountError, setAmountError] = useState<string | null>(null);
@@ -26,7 +35,8 @@ export function WithdrawTab({ pool, tokenMeta, currentUser, onSuccess }: Withdra
   const decimals = tokenMeta?.decimals ?? 7;
   const symbol = tokenMeta?.symbol ?? "TOKEN";
   const isAdmin = pool.admins.some((a) => a === currentUser);
-  const isSubmitting = status !== "idle" && status !== "error" && status !== "success";
+  const isSubmitting =
+    status !== "idle" && status !== "error" && status !== "success";
 
   // For M-of-N: in a real implementation, signers would be collected off-chain
   // (e.g., via a pending-signatures queue). Here we simulate the current user
@@ -48,12 +58,13 @@ export function WithdrawTab({ pool, tokenMeta, currentUser, onSuccess }: Withdra
       }
       return null;
     },
-    [decimals, pool.balance]
+    [decimals, pool.balance],
   );
 
   const validateRecipient = (val: string): string | null => {
     if (!val.trim()) return "Recipient address is required";
-    if (!STELLAR_KEY_RE.test(val.trim())) return "Invalid Stellar public key (must start with G, 56 chars)";
+    if (!STELLAR_KEY_RE.test(val.trim()))
+      return "Invalid Stellar public key (must start with G, 56 chars)";
     return null;
   };
 
@@ -81,7 +92,15 @@ export function WithdrawTab({ pool, tokenMeta, currentUser, onSuccess }: Withdra
 
       await withdraw(signers, pool.pool_id, amount, decimals, recipient.trim());
     },
-    [amount, recipient, validateAmount, withdraw, signers, pool.pool_id, decimals]
+    [
+      amount,
+      recipient,
+      validateAmount,
+      withdraw,
+      signers,
+      pool.pool_id,
+      decimals,
+    ],
   );
 
   const handleReset = () => {
@@ -99,12 +118,17 @@ export function WithdrawTab({ pool, tokenMeta, currentUser, onSuccess }: Withdra
   if (!isAdmin) {
     return (
       <div style={styles.notAdmin} role="alert">
-        <span style={styles.notAdminIcon} aria-hidden="true">🔒</span>
+        <span style={styles.notAdminIcon} aria-hidden="true">
+          🔒
+        </span>
         <div>
           <p style={styles.notAdminTitle}>Admin access required</p>
           <p style={styles.notAdminBody}>
             Only pool admins can initiate withdrawals. This pool requires{" "}
-            <strong>{pool.threshold} of {pool.admins.length}</strong> admin signatures.
+            <strong>
+              {pool.threshold} of {pool.admins.length}
+            </strong>{" "}
+            admin signatures.
           </p>
         </div>
       </div>
@@ -125,26 +149,36 @@ export function WithdrawTab({ pool, tokenMeta, currentUser, onSuccess }: Withdra
       <div style={styles.sigStatus}>
         <div style={styles.sigHeader}>
           <span style={styles.sigLabel}>Signature Status</span>
-          <ThresholdBadge threshold={pool.threshold} total={pool.admins.length} variant="compact" />
+          <ThresholdBadge
+            threshold={pool.threshold}
+            total={pool.admins.length}
+            variant="compact"
+          />
         </div>
 
         {needsMoreSigners ? (
           <div style={styles.pendingSigs} role="status">
-            <span style={styles.pendingIcon} aria-hidden="true">⏳</span>
+            <span style={styles.pendingIcon} aria-hidden="true">
+              ⏳
+            </span>
             <div>
               <p style={styles.pendingTitle}>Pending signatures</p>
               <p style={styles.pendingBody}>
                 You are signer <strong>1 of {pool.threshold}</strong> required.{" "}
-                {pool.threshold - 1} more admin{pool.threshold - 1 !== 1 ? "s" : ""} must co-sign
-                before this withdrawal can execute.
+                {pool.threshold - 1} more admin
+                {pool.threshold - 1 !== 1 ? "s" : ""} must co-sign before this
+                withdrawal can execute.
               </p>
             </div>
           </div>
         ) : (
           <div style={styles.readySigs} role="status">
-            <span style={styles.readyIcon} aria-hidden="true">✅</span>
+            <span style={styles.readyIcon} aria-hidden="true">
+              ✅
+            </span>
             <p style={styles.readyText}>
-              Threshold met — {signerCount} of {pool.threshold} required signatures collected.
+              Threshold met — {signerCount} of {pool.threshold} required
+              signatures collected.
             </p>
           </div>
         )}
@@ -178,14 +212,20 @@ export function WithdrawTab({ pool, tokenMeta, currentUser, onSuccess }: Withdra
                   ...styles.input,
                   ...(amountError ? styles.inputError : {}),
                 }}
-                aria-describedby={amountError ? "withdraw-amount-error" : undefined}
+                aria-describedby={
+                  amountError ? "withdraw-amount-error" : undefined
+                }
                 aria-invalid={!!amountError}
                 autoComplete="off"
               />
               <span style={styles.inputSuffix}>{symbol}</span>
             </div>
             {amountError && (
-              <p id="withdraw-amount-error" style={styles.fieldError} role="alert">
+              <p
+                id="withdraw-amount-error"
+                style={styles.fieldError}
+                role="alert"
+              >
                 {amountError}
               </p>
             )}
@@ -209,13 +249,19 @@ export function WithdrawTab({ pool, tokenMeta, currentUser, onSuccess }: Withdra
                 fontSize: "var(--text-sm)",
                 ...(recipientError ? styles.inputError : {}),
               }}
-              aria-describedby={recipientError ? "withdraw-recipient-error" : undefined}
+              aria-describedby={
+                recipientError ? "withdraw-recipient-error" : undefined
+              }
               aria-invalid={!!recipientError}
               autoComplete="off"
               spellCheck={false}
             />
             {recipientError && (
-              <p id="withdraw-recipient-error" style={styles.fieldError} role="alert">
+              <p
+                id="withdraw-recipient-error"
+                style={styles.fieldError}
+                role="alert"
+              >
                 {recipientError}
               </p>
             )}
@@ -223,7 +269,9 @@ export function WithdrawTab({ pool, tokenMeta, currentUser, onSuccess }: Withdra
 
           <button
             type="submit"
-            disabled={isSubmitting || !amount || !!amountError || !!recipientError}
+            disabled={
+              isSubmitting || !amount || !!amountError || !!recipientError
+            }
             style={{
               ...styles.submitBtn,
               ...(isSubmitting || !amount || !!amountError || !!recipientError
@@ -234,7 +282,9 @@ export function WithdrawTab({ pool, tokenMeta, currentUser, onSuccess }: Withdra
             {isSubmitting ? (
               <>
                 <span aria-hidden="true">⏳</span>
-                {status === "awaiting_sig" ? "Sign in Freighter…" : "Withdrawing…"}
+                {status === "awaiting_sig"
+                  ? "Sign in Freighter…"
+                  : "Withdrawing…"}
               </>
             ) : needsMoreSigners ? (
               "Initiate Withdrawal Request"
@@ -245,8 +295,8 @@ export function WithdrawTab({ pool, tokenMeta, currentUser, onSuccess }: Withdra
 
           {needsMoreSigners && (
             <p style={styles.initiateNote}>
-              Submitting will record your signature. The withdrawal executes once{" "}
-              {pool.threshold} admins have signed.
+              Submitting will record your signature. The withdrawal executes
+              once {pool.threshold} admins have signed.
             </p>
           )}
         </form>

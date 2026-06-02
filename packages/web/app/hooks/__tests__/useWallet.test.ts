@@ -1,4 +1,4 @@
-import { renderHook, act, waitFor } from "@testing-library/react";
+import { renderHook, act, waitFor, cleanup } from "@testing-library/react";
 import { WalletProvider, useWallet } from "../../components/WalletProvider";
 
 /**
@@ -47,8 +47,9 @@ describe("useWallet", () => {
   });
 
   afterEach(() => {
+    cleanup();
     jest.clearAllMocks();
-    delete (window as unknown).freighterApi;
+    delete (window as any).freighterApi;
   });
 
   describe("initial state", () => {
@@ -108,7 +109,7 @@ describe("useWallet", () => {
         () =>
           new Promise((resolve) => {
             setTimeout(() => resolve({ publicKey }), 100);
-          })
+          }),
       );
 
       const { result } = renderHook(() => useWallet(), {
@@ -124,7 +125,7 @@ describe("useWallet", () => {
     });
 
     it("should handle connection error when Freighter is not installed", async () => {
-      delete (window as unknown).freighterApi;
+      delete (window as any).freighterApi;
 
       const { result } = renderHook(() => useWallet(), {
         wrapper: WalletProvider,
@@ -224,7 +225,6 @@ describe("useWallet", () => {
 
   describe("error handling", () => {
     it("should throw error when used outside WalletProvider", () => {
-      // Suppress console.error for this test
       const consoleSpy = jest.spyOn(console, "error").mockImplementationOnce(() => {});
 
       expect(() => {

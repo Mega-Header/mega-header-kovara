@@ -16,7 +16,7 @@ interface WalletContextValue extends WalletState {
 
 const WalletContext = createContext<WalletContextValue | null>(null);
 
-const STORAGE_KEY = "linkora_wallet_public_key";
+const STORAGE_KEY = "mega-header-mega-header-mega-header-kovara_wallet_public_key";
 
 declare global {
   interface Window {

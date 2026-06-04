@@ -1,12 +1,12 @@
 import { useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-// Assuming a provider or hook exists to access the LinkoraClient and current user
+// Assuming a provider or hook exists to access the mega-header-mega-header-mega-header-kovaraClient and current user
 // If not, this would be replaced with the appropriate state management for the user session
-import { useLinkora } from "./useLinkora";
+import { usemega-header-mega-header-mega-header-kovara } from "./usemega-header-mega-header-mega-header-kovara";
 
 export const useFollow = (targetAddress: string) => {
-  const { client, address: me } = useLinkora();
+  const { client, address: me } = usemega-header-mega-header-mega-header-kovara();
   const queryClient = useQueryClient();
 
   // Fetch initial follow status

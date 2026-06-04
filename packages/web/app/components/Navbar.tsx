@@ -15,7 +15,7 @@ export function Navbar() {
       <div style={styles.container}>
         {/* Brand Logo */}
         <Link href="/" style={styles.logo} onClick={closeMenu}>
-          Linkora
+          mega-header-mega-header-mega-header-kovara
         </Link>
 
         {/* Desktop Menu Link List */}

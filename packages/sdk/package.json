@@ -1,22 +1,22 @@
 {
-  "name": "linkora-sdk",
+  "name": "mega-header-mega-header-mega-header-kovara-sdk",
   "version": "0.1.0",
-  "description": "Typed TypeScript client for LinkoraContract on Stellar",
-  "homepage": "https://github.com/Epta-Node/Linkora-social#readme",
+  "description": "Typed TypeScript client for mega-header-mega-header-mega-header-kovaraContract on Stellar",
+  "homepage": "https://github.com/Epta-Node/mega-header-mega-header-mega-header-kovara#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Epta-Node/Linkora-social.git",
+    "url": "git+https://github.com/Epta-Node/mega-header-mega-header-mega-header-kovara.git",
     "directory": "packages/sdk"
   },
   "bugs": {
-    "url": "https://github.com/Epta-Node/Linkora-social/issues"
+    "url": "https://github.com/Epta-Node/mega-header-mega-header-mega-header-kovara/issues"
   },
   "license": "Apache-2.0",
-  "author": "Linkora Contributors",
+  "author": "mega-header-mega-header-mega-header-kovara Contributors",
   "keywords": [
     "stellar",
     "soroban",
-    "linkora",
+    "mega-header-mega-header-mega-header-kovara",
     "sdk",
     "typescript",
     "client"

@@ -1,8 +1,8 @@
-# linkora-sdk
+# mega-header-mega-header-mega-header-kovara-sdk
 
-Typed TypeScript client for `LinkoraContract`, generated from the compiled contract WASM using `stellar contract bindings typescript`.
+Typed TypeScript client for `mega-header-mega-header-mega-header-kovaraContract`, generated from the compiled contract WASM using `stellar contract bindings typescript`.
 
-**npm**: [`linkora-sdk`](https://www.npmjs.com/package/linkora-sdk)
+**npm**: [`mega-header-mega-header-mega-header-kovara-sdk`](https://www.npmjs.com/package/mega-header-mega-header-mega-header-kovara-sdk)
 
 ## Quick Start
 
@@ -10,22 +10,22 @@ Typed TypeScript client for `LinkoraContract`, generated from the compiled contr
 
 ```bash
 # npm
-npm install linkora-sdk
+npm install mega-header-mega-header-mega-header-kovara-sdk
 
 # pnpm
-pnpm add linkora-sdk
+pnpm add mega-header-mega-header-mega-header-kovara-sdk
 
 # yarn
-yarn add linkora-sdk
+yarn add mega-header-mega-header-mega-header-kovara-sdk
 ```
 
 ### 2. Instantiate the client
 
 ```ts
-import { Client } from "linkora-sdk";
+import { Client } from "mega-header-mega-header-mega-header-kovara-sdk";
 
 const client = new Client({
-  contractId: "C...", // deployed LinkoraContract address
+  contractId: "C...", // deployed mega-header-mega-header-mega-header-kovaraContract address
   networkPassphrase: "Test SDF Network ; September 2015",
   rpcUrl: "https://soroban-testnet.stellar.org",
 });
@@ -40,7 +40,7 @@ console.log(post.result);
 
 // Create a post (requires auth)
 const tx = await client.create_post(
-  { author: keypair.publicKey(), content: "Hello Linkora!" },
+  { author: keypair.publicKey(), content: "Hello mega-header-mega-header-mega-header-kovara!" },
   { fee: 100 }
 );
 await tx.signAndSend({ signTransaction: keypair.sign.bind(keypair) });

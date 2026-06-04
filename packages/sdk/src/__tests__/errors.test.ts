@@ -1,5 +1,5 @@
 import {
-  LinkoraError,
+  mega-header-mega-header-mega-header-kovaraError,
   NotFoundError,
   UnauthorizedError,
   InsufficientBalanceError,
@@ -9,47 +9,47 @@ import {
 } from "../errors";
 
 describe("Error classes", () => {
-  it("LinkoraError sets name and message correctly", () => {
-    const err = new LinkoraError("Something went wrong");
+  it("mega-header-mega-header-mega-header-kovaraError sets name and message correctly", () => {
+    const err = new mega-header-mega-header-mega-header-kovaraError("Something went wrong");
     expect(err.message).toBe("Something went wrong");
-    expect(err.name).toBe("LinkoraError");
+    expect(err.name).toBe("mega-header-mega-header-mega-header-kovaraError");
     expect(err.originalError).toBeUndefined();
   });
 
-  it("LinkoraError preserves original error", () => {
+  it("mega-header-mega-header-mega-header-kovaraError preserves original error", () => {
     const original = new Error("network failure");
-    const err = new LinkoraError("SDK error", original);
+    const err = new mega-header-mega-header-mega-header-kovaraError("SDK error", original);
     expect(err.originalError).toBe(original);
   });
 
-  it("NotFoundError is an instance of LinkoraError", () => {
+  it("NotFoundError is an instance of mega-header-mega-header-mega-header-kovaraError", () => {
     const err = new NotFoundError("not found");
-    expect(err).toBeInstanceOf(LinkoraError);
+    expect(err).toBeInstanceOf(mega-header-mega-header-mega-header-kovaraError);
     expect(err).toBeInstanceOf(NotFoundError);
     expect(err.name).toBe("NotFoundError");
   });
 
-  it("UnauthorizedError is an instance of LinkoraError", () => {
+  it("UnauthorizedError is an instance of mega-header-mega-header-mega-header-kovaraError", () => {
     const err = new UnauthorizedError("unauthorized");
-    expect(err).toBeInstanceOf(LinkoraError);
+    expect(err).toBeInstanceOf(mega-header-mega-header-mega-header-kovaraError);
     expect(err).toBeInstanceOf(UnauthorizedError);
   });
 
-  it("InsufficientBalanceError is an instance of LinkoraError", () => {
+  it("InsufficientBalanceError is an instance of mega-header-mega-header-mega-header-kovaraError", () => {
     const err = new InsufficientBalanceError("low balance");
-    expect(err).toBeInstanceOf(LinkoraError);
+    expect(err).toBeInstanceOf(mega-header-mega-header-mega-header-kovaraError);
     expect(err).toBeInstanceOf(InsufficientBalanceError);
   });
 
-  it("CooldownError is an instance of LinkoraError", () => {
+  it("CooldownError is an instance of mega-header-mega-header-mega-header-kovaraError", () => {
     const err = new CooldownError("cooldown active");
-    expect(err).toBeInstanceOf(LinkoraError);
+    expect(err).toBeInstanceOf(mega-header-mega-header-mega-header-kovaraError);
     expect(err).toBeInstanceOf(CooldownError);
   });
 
-  it("InvalidInputError is an instance of LinkoraError", () => {
+  it("InvalidInputError is an instance of mega-header-mega-header-mega-header-kovaraError", () => {
     const err = new InvalidInputError("bad input");
-    expect(err).toBeInstanceOf(LinkoraError);
+    expect(err).toBeInstanceOf(mega-header-mega-header-mega-header-kovaraError);
     expect(err).toBeInstanceOf(InvalidInputError);
   });
 
@@ -155,9 +155,9 @@ describe("mapError", () => {
   });
 
   describe("default fallback", () => {
-    it("returns a generic LinkoraError for unknown errors", () => {
+    it("returns a generic mega-header-mega-header-mega-header-kovaraError for unknown errors", () => {
       const result = mapError("something unexpected happened");
-      expect(result).toBeInstanceOf(LinkoraError);
+      expect(result).toBeInstanceOf(mega-header-mega-header-mega-header-kovaraError);
       expect(result).not.toBeInstanceOf(NotFoundError);
       expect(result.message).toBe("something unexpected happened");
     });
@@ -165,7 +165,7 @@ describe("mapError", () => {
     it("handles Error objects", () => {
       const error = new Error("custom runtime error");
       const result = mapError(error);
-      expect(result).toBeInstanceOf(LinkoraError);
+      expect(result).toBeInstanceOf(mega-header-mega-header-mega-header-kovaraError);
       expect(result.message).toBe("custom runtime error");
     });
   });

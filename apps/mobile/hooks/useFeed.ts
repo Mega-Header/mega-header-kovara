@@ -36,8 +36,8 @@ const ALL_POSTS: Post[] = [
   {
     id: 4,
     author: "GDEF5678901234ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-    username: "linkora_fan",
-    content: "Linkora is the future of decentralised social. #Stellar",
+    username: "mega-header-mega-header-mega-header-kovara_fan",
+    content: "mega-header-mega-header-mega-header-kovara is the future of decentralised social. #Stellar",
     tip_total: 75,
     timestamp: Math.floor(Date.now() / 1000) - 21600,
     like_count: 8,
@@ -104,8 +104,8 @@ const ALL_POSTS: Post[] = [
   {
     id: 4,
     author: "GDEF5678901234ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-    username: "linkora_fan",
-    content: "Linkora is the future of decentralised social. #Stellar",
+    username: "mega-header-mega-header-mega-header-kovara_fan",
+    content: "mega-header-mega-header-mega-header-kovara is the future of decentralised social. #Stellar",
     tip_total: 75,
     timestamp: Math.floor(Date.now() / 1000) - 21600,
     like_count: 8,

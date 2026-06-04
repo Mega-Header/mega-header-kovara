@@ -1,8 +1,8 @@
 {
-  "name": "@linkora/indexer",
+  "name": "@mega-header-mega-header-mega-header-kovara/indexer",
   "version": "0.1.0",
   "private": true,
-  "description": "Off-chain indexer service for Linkora social contract events",
+  "description": "Off-chain indexer service for mega-header-mega-header-mega-header-kovara social contract events",
   "main": "dist/index.js",
   "scripts": {
     "lint": "eslint . --ext .ts,.tsx",

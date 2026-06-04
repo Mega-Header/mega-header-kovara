@@ -1,4 +1,4 @@
-import { LinkoraClient } from "../client";
+import { mega-header-mega-header-mega-header-kovaraClient } from "../client";
 import { Profile, Post, Pool } from "../types";
 
 const mockSimulate = jest.fn();
@@ -46,12 +46,12 @@ jest.mock("@stellar/stellar-sdk", () => ({
   xdr: {},
 }));
 
-describe("LinkoraClient read methods", () => {
-  let client: LinkoraClient;
+describe("mega-header-mega-header-mega-header-kovaraClient read methods", () => {
+  let client: mega-header-mega-header-mega-header-kovaraClient;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    client = new LinkoraClient({
+    client = new mega-header-mega-header-mega-header-kovaraClient({
       contractId: "CDUMMYCONTRACTXXXXXXXXXXXXXXXXXXXXXXXXXXX",
       rpcUrl: "https://dummy-rpc.example.com",
     });

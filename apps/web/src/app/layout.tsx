@@ -4,7 +4,7 @@ import { WalletProvider } from "@/components/WalletProvider";
 import { NavBar } from "@/components/NavBar";
 
 export const metadata: Metadata = {
-  title: "Linkora",
+  title: "mega-header-mega-header-mega-header-kovara",
   description: "Decentralised social on Stellar",
 };
 

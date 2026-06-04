@@ -1,8 +1,8 @@
 openapi: "3.1.0"
 info:
-  title: Linkora Indexer API
+  title: mega-header-mega-header-mega-header-kovara Indexer API
   version: "0.1.0"
-  description: REST API for querying indexed on-chain data from the Linkora protocol.
+  description: REST API for querying indexed on-chain data from the mega-header-mega-header-mega-header-kovara protocol.
 
 servers:
   - url: http://localhost:3001/api

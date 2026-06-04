@@ -174,7 +174,7 @@ export default function ExploreScreen() {
         ) : !hasQuery ? (
           <EmptyState
             icon="🔎"
-            title="Search Linkora"
+            title="Search mega-header-mega-header-mega-header-kovara"
             subtitle="Find creators and community pools."
           />
         ) : !hasResults ? (

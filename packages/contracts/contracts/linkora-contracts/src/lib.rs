@@ -303,7 +303,7 @@ pub struct TreasuryUpdatedEvent {
 // ── Contract ──────────────────────────────────────────────────────────────────
 
 #[contract]
-pub struct LinkoraContract;
+pub struct mega-header-mega-header-mega-header-kovaraContract;
 
 // ── Validation Helpers ────────────────────────────────────────────────────────
 
@@ -355,7 +355,7 @@ where
 }
 
 #[contractimpl]
-impl LinkoraContract {
+impl mega-header-mega-header-mega-header-kovaraContract {
     // ── Initialization ────────────────────────────────────────────────────────
 
     pub fn initialize(env: Env, admin: Address, treasury: Address, fee_bps: u32) {

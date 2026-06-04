@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Linkora-socials Release Script
+# mega-header-mega-header-mega-header-kovaras Release Script
 # This script automates version bumping, changelog updates, and git tagging
 
 set -e
@@ -31,7 +31,7 @@ tag_exists() {
 
 # Function to get current version from contract Cargo.toml
 get_current_version() {
-    grep -m 1 "^version = " packages/contracts/contracts/linkora-contracts/Cargo.toml | sed 's/version = "\(.*\)"/\1/'
+    grep -m 1 "^version = " packages/contracts/contracts/mega-header-mega-header-mega-header-kovara-contracts/Cargo.toml | sed 's/version = "\(.*\)"/\1/'
 }
 
 # Function to get current version from root package.json
@@ -42,8 +42,8 @@ get_root_version() {
 # Function to update version in Cargo.toml
 update_contract_version() {
     local new_version=$1
-    sed -i.bak "s/^version = .*/version = \"$new_version\"/" packages/contracts/contracts/linkora-contracts/Cargo.toml
-    rm packages/contracts/contracts/linkora-contracts/Cargo.toml.bak
+    sed -i.bak "s/^version = .*/version = \"$new_version\"/" packages/contracts/contracts/mega-header-mega-header-mega-header-kovara-contracts/Cargo.toml
+    rm packages/contracts/contracts/mega-header-mega-header-mega-header-kovara-contracts/Cargo.toml.bak
     print_info "Updated contract version to $new_version"
 }
 
@@ -106,7 +106,7 @@ create_git_tag() {
 
 # Main script logic
 main() {
-    print_info "Linkora-socials Release Script"
+    print_info "mega-header-mega-header-mega-header-kovaras Release Script"
     print_info "=============================="
     
     # Check if we're in a git repository

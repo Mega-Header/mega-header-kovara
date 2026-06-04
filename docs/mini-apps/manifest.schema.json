@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "LinkoraMiniAppManifest",
+  "title": "mega-header-mega-header-mega-header-kovaraMiniAppManifest",
   "type": "object",
   "properties": {
     "name": {

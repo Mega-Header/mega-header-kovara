@@ -18,7 +18,7 @@ export function NavBar() {
           href="/"
           className="text-xl font-extrabold tracking-tight text-violet-500 hover:text-violet-400 transition-colors"
         >
-          Linkora
+          mega-header-mega-header-mega-header-kovara
         </a>
 
         {/* Right side */}

@@ -1,6 +1,6 @@
 /**
  * Tip Event Handler
- * Handles TipEvent from the Linkora contract
+ * Handles TipEvent from the mega-header-mega-header-mega-header-kovara contract
  */
 
 import { Pool } from "pg";

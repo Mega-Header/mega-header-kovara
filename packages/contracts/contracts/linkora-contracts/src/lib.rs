@@ -467,17 +467,6 @@ impl mega-header-mega-header-mega-header-kovaraContract {
             .persistent()
             .remove(&StorageKey::UsernameIndex(profile.username));
         env.storage().persistent().remove(&key);
-
-        let count: u64 = env
-            .storage()
-            .instance()
-            .get(&PROFILE_CREATED_CT)
-            .unwrap_or(0);
-        if count > 0 {
-            env.storage()
-                .instance()
-                .set(&PROFILE_CREATED_CT, &(count - 1));
-        }
     }
 
     pub fn get_address_by_username(env: Env, username: String) -> Option<Address> {
@@ -900,7 +889,10 @@ impl mega-header-mega-header-mega-header-kovaraContract {
         amount: i128,
     ) {
         Self::bump_instance(&env);
-        assert!(amount > 0, "deposit amount must be strictly greater than zero");
+        assert!(
+            amount > 0,
+            "deposit amount must be strictly greater than zero"
+        );
         depositor.require_auth();
         let key = StorageKey::Pool(pool_id.clone());
         let mut pool: Pool = env

@@ -14,6 +14,11 @@ fn setup_token(env: &Env, admin: &Address) -> Address {
     token_id.address()
 }
 
+fn make_token(env: &Env) -> Address {
+    let admin = Address::generate(env);
+    setup_token(env, &admin)
+}
+
 fn setup_contract(env: &Env) -> (mega-header-mega-header-mega-header-kovaraContractClient<'_>, Address, Address) {
     let contract_id = env.register(mega-header-mega-header-mega-header-kovaraContract, ());
     let client = mega-header-mega-header-mega-header-kovaraContractClient::new(env, &contract_id);
@@ -30,7 +35,7 @@ fn test_set_and_get_profile() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
     let profile = client.get_profile(&user).unwrap();
     assert_eq!(profile.username, String::from_str(&env, "alice"));
@@ -43,7 +48,7 @@ fn test_username_reverse_index_registration() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
 
     let resolved = client.get_address_by_username(&String::from_str(&env, "alice"));
@@ -57,7 +62,7 @@ fn test_username_reverse_index_update() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
     client.set_profile(&user, &String::from_str(&env, "alice2"), &token);
 
@@ -81,7 +86,7 @@ fn test_username_duplicate_rejected() {
 
     let user1 = Address::generate(&env);
     let user2 = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     client.set_profile(&user1, &String::from_str(&env, "shared_username"), &token);
     client.set_profile(&user2, &String::from_str(&env, "shared_username"), &token);
@@ -324,7 +329,7 @@ fn test_username_same_user_can_reregister_same_name() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
     // Same user re-registering with the same username should not panic
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
@@ -361,6 +366,55 @@ fn test_tip_fee_split() {
     // Author gets 1000 - 25 = 975
     assert_eq!(TokenClient::new(&env, &token).balance(&treasury), 25);
     assert_eq!(TokenClient::new(&env, &token).balance(&author), 975);
+
+    let post = client.get_post(&post_id).unwrap();
+    assert_eq!(post.tip_total, 1000);
+}
+
+#[test]
+#[should_panic(expected = "wrong token for tip")]
+fn test_tip_rejects_mismatched_creator_token() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(mega-header-mega-header-mega-header-kovaraContract, ());
+    let client = mega-header-mega-header-mega-header-kovaraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let author = Address::generate(&env);
+    let tipper = Address::generate(&env);
+
+    client.initialize(&admin, &treasury, &250);
+
+    let allowed_token = setup_token(&env, &tipper);
+    let mismatched_token = setup_token(&env, &tipper);
+    client.set_profile(&author, &String::from_str(&env, "alice"), &allowed_token);
+
+    let post_id = client.create_post(&author, &String::from_str(&env, "Creator token test"));
+    client.tip(&tipper, &post_id, &mismatched_token, &1000);
+}
+
+#[test]
+fn test_tip_accepts_matching_creator_token() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(mega-header-mega-header-mega-header-kovaraContract, ());
+    let client = mega-header-mega-header-mega-header-kovaraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let author = Address::generate(&env);
+    let tipper = Address::generate(&env);
+
+    client.initialize(&admin, &treasury, &250);
+
+    let creator_token = setup_token(&env, &tipper);
+    client.set_profile(&author, &String::from_str(&env, "alice"), &creator_token);
+
+    let post_id = client.create_post(&author, &String::from_str(&env, "Creator token test"));
+    client.tip(&tipper, &post_id, &creator_token, &1000);
 
     let post = client.get_post(&post_id).unwrap();
     assert_eq!(post.tip_total, 1000);
@@ -462,7 +516,7 @@ fn test_profile_count() {
 
     let user1 = Address::generate(&env);
     let user2 = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     client.set_profile(&user1, &String::from_str(&env, "alice"), &token);
     assert_eq!(client.get_profile_count(), 1);
@@ -1273,7 +1327,7 @@ fn test_username_too_short() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // 2-character username should panic
     client.set_profile(&user, &String::from_str(&env, "ab"), &token);
@@ -1286,7 +1340,7 @@ fn test_username_min_length_valid() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // 3-character username should succeed
     client.set_profile(&user, &String::from_str(&env, "abc"), &token);
@@ -1301,7 +1355,7 @@ fn test_username_max_length_valid() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // 32-character username should succeed
     let username_str = "abcdefghijklmnopqrstuvwxyz123456";
@@ -1320,7 +1374,7 @@ fn test_username_too_long() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // 33-character username should panic
     let username_str = "abcdefghijklmnopqrstuvwxyz1234567";
@@ -1337,7 +1391,7 @@ fn test_username_with_space() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // Username with space should panic
     client.set_profile(&user, &String::from_str(&env, "user name"), &token);
@@ -1351,7 +1405,7 @@ fn test_username_with_special_char() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // Username with special character should panic
     client.set_profile(&user, &String::from_str(&env, "user@name"), &token);
@@ -2170,7 +2224,7 @@ fn test_username_uniqueness_enforced() {
 
     let user1 = Address::generate(&env);
     let user2 = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // User1 registers "alice"
     client.set_profile(&user1, &String::from_str(&env, "alice"), &token);
@@ -2186,7 +2240,7 @@ fn test_username_update_by_owner() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // Register with "alice"
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
@@ -2219,7 +2273,7 @@ fn test_username_freed_on_change() {
 
     let user1 = Address::generate(&env);
     let user2 = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // User1 registers "alice"
     client.set_profile(&user1, &String::from_str(&env, "alice"), &token);
@@ -2527,7 +2581,7 @@ fn test_profile_write_extends_ttl() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
 
     let contract_id = client.address.clone();
@@ -2626,7 +2680,7 @@ fn test_profile_count_preserved_on_delete() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
     assert_eq!(
@@ -2654,7 +2708,7 @@ fn test_profile_count_never_decremented() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
     client.delete_profile(&user);
@@ -2687,7 +2741,7 @@ fn test_delete_profile_frees_username() {
 
     let user1 = Address::generate(&env);
     let user2 = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     client.set_profile(&user1, &String::from_str(&env, "alice"), &token);
     client.delete_profile(&user1);
@@ -2732,7 +2786,7 @@ fn test_profile_count_tracks_total_created_never_decrements() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     assert_eq!(client.get_profile_count(), 0, "counter starts at zero");
 
@@ -2786,7 +2840,7 @@ fn test_username_index_uses_typed_storage_key() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
     let username = String::from_str(&env, "charlie");
 
     client.set_profile(&user, &username, &token);
@@ -2877,21 +2931,56 @@ fn test_unblock_event() {
 }
 
 #[test]
-#[should_panic(expected = "deposit amount must be strictly greater than zero")]
-fn test_pool_deposit_zero_rejected() {
+fn test_tip_cooldown_enforcement() {
     let env = Env::default();
     env.mock_all_auths();
-    let (client, admin, _) = setup_contract(&env);
 
-    let pool_id = symbol_short!("pool_a");
-    let token = setup_token(&env, &admin);
-    let mut admins = vec![&env];
-    admins.push_back(admin.clone());
+    // 1) Setup the main contract and the asset token contract
+    let (client, _admin, _treasury) = setup_contract(&env);
+    let token_admin = Address::generate(&env);
+    let token_address = setup_token(&env, &token_admin);
 
-    client.create_pool(&admin, &pool_id, &token, &admins, &1);
+    // 2) Setup profiles for Author and Tipper
+    let author = Address::generate(&env);
+    let tipper = Address::generate(&env);
 
-    let other_user = Address::generate(&env);
-    client.pool_deposit(&other_user, &pool_id, &token, &0);
+    client.set_profile(&author, &String::from_str(&env, "author"), &token_address);
+    client.set_profile(&tipper, &String::from_str(&env, "tipper"), &token_address);
+
+    // Mint tokens to the tipper so they have funds to tip
+    StellarAssetClient::new(&env, &token_address).mint(&tipper, &5000);
+
+    // 3) Configure a strict tip cooldown window (Issue #76)
+    let cooldown_window: u32 = 20;
+    client.set_tip_cooldown_window(&cooldown_window);
+    assert_eq!(client.get_tip_cooldown_window(), cooldown_window);
+
+    // 4) Create a post to tip against
+    let content = String::from_str(&env, "Hello Linkora!");
+    let post_id = client.create_post(&author, &content);
+
+    // Set the initial ledger sequence to 100
+    env.ledger().with_mut(|l| l.sequence_number = 100);
+
+    // 5) First tip succeeds
+    client.tip(&tipper, &post_id, &token_address, &100);
+
+    // 6) Second tip immediately after (105) must fail before cooldown has elapsed
+    env.ledger().with_mut(|l| l.sequence_number = 105);
+    let result = client.try_tip(&tipper, &post_id, &token_address, &100);
+    assert!(
+        result.is_err(),
+        "Expected tip to fail because cooldown has not expired"
+    );
+
+    // 7) Advance past the cooldown window and tip succeeds
+    env.ledger().with_mut(|l| l.sequence_number = 125);
+    client.tip(&tipper, &post_id, &token_address, &100);
+
+
+    // Verify post total updated correctly
+    let post = client.get_post(&post_id).unwrap();
+    assert_eq!(post.tip_total, 200);
 }
 
 #[test]

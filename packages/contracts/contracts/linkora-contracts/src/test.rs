@@ -2563,3 +2563,56 @@ fn test_unblock_event() {
     // Verify bob is no longer blocked by alice
     assert!(!client.is_blocked(&alice, &bob));
 }
+
+#[test]
+fn test_tip_cooldown_enforcement() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    // 1) Setup the main contract and the asset token contract
+    let (client, _admin, _treasury) = setup_contract(&env);
+    let token_admin = Address::generate(&env);
+    let token_address = setup_token(&env, &token_admin);
+
+    // 2) Setup profiles for Author and Tipper
+    let author = Address::generate(&env);
+    let tipper = Address::generate(&env);
+
+    client.set_profile(&author, &String::from_str(&env, "author"), &token_address);
+    client.set_profile(&tipper, &String::from_str(&env, "tipper"), &token_address);
+
+    // Mint tokens to the tipper so they have funds to tip
+    StellarAssetClient::new(&env, &token_address).mint(&tipper, &5000);
+
+    // 3) Configure a strict tip cooldown window (Issue #76)
+    let cooldown_window: u32 = 20;
+    client.set_tip_cooldown_window(&cooldown_window);
+    assert_eq!(client.get_tip_cooldown_window(), cooldown_window);
+
+    // 4) Create a post to tip against
+    let content = String::from_str(&env, "Hello Linkora!");
+    let post_id = client.create_post(&author, &content);
+
+    // Set the initial ledger sequence to 100
+    env.ledger().with_mut(|l| l.sequence_number = 100);
+
+    // 5) First tip succeeds
+    client.tip(&tipper, &post_id, &token_address, &100);
+
+    // 6) Second tip immediately after (105) must fail before cooldown has elapsed
+    env.ledger().with_mut(|l| l.sequence_number = 105);
+    let result = client.try_tip(&tipper, &post_id, &token_address, &100);
+    assert!(
+        result.is_err(),
+        "Expected tip to fail because cooldown has not expired"
+    );
+
+    // 7) Advance past the cooldown window and tip succeeds
+    env.ledger().with_mut(|l| l.sequence_number = 125);
+    client.tip(&tipper, &post_id, &token_address, &100);
+
+
+    // Verify post total updated correctly
+    let post = client.get_post(&post_id).unwrap();
+    assert_eq!(post.tip_total, 200);
+}

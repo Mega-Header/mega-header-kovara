@@ -509,6 +509,52 @@ fn test_tip_non_blocked_user() {
 }
 
 #[test]
+#[should_panic(expected = "tip amount must be positive")]
+fn test_tip_zero_amount_rejected() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(mega-header-mega-header-mega-header-kovaraContract, ());
+    let client = mega-header-mega-header-mega-header-kovaraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let author = Address::generate(&env);
+    let tipper = Address::generate(&env);
+
+    client.initialize(&admin, &treasury, &250);
+
+    let token = setup_token(&env, &tipper);
+    let post_id = client.create_post(&author, &String::from_str(&env, "Test post"));
+
+    // Attempt to tip with zero amount should panic
+    client.tip(&tipper, &post_id, &token, &0);
+}
+
+#[test]
+#[should_panic(expected = "tip amount must be positive")]
+fn test_tip_negative_amount_rejected() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(mega-header-mega-header-mega-header-kovaraContract, ());
+    let client = mega-header-mega-header-mega-header-kovaraContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let author = Address::generate(&env);
+    let tipper = Address::generate(&env);
+
+    client.initialize(&admin, &treasury, &250);
+
+    let token = setup_token(&env, &tipper);
+    let post_id = client.create_post(&author, &String::from_str(&env, "Test post"));
+
+    // Attempt to tip with negative amount should panic
+    client.tip(&tipper, &post_id, &token, &-100);
+}
+
+#[test]
 fn test_profile_count() {
     let env = Env::default();
     env.mock_all_auths();

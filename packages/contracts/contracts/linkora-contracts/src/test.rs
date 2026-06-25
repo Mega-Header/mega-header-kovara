@@ -14,6 +14,11 @@ fn setup_token(env: &Env, admin: &Address) -> Address {
     token_id.address()
 }
 
+fn make_token(env: &Env) -> Address {
+    let admin = Address::generate(env);
+    setup_token(env, &admin)
+}
+
 fn setup_contract(env: &Env) -> (mega-header-mega-header-mega-header-kovaraContractClient<'_>, Address, Address) {
     let contract_id = env.register(mega-header-mega-header-mega-header-kovaraContract, ());
     let client = mega-header-mega-header-mega-header-kovaraContractClient::new(env, &contract_id);
@@ -30,7 +35,7 @@ fn test_set_and_get_profile() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
     let profile = client.get_profile(&user).unwrap();
     assert_eq!(profile.username, String::from_str(&env, "alice"));
@@ -43,7 +48,7 @@ fn test_username_reverse_index_registration() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
 
     let resolved = client.get_address_by_username(&String::from_str(&env, "alice"));
@@ -57,7 +62,7 @@ fn test_username_reverse_index_update() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
     client.set_profile(&user, &String::from_str(&env, "alice2"), &token);
 
@@ -81,7 +86,7 @@ fn test_username_duplicate_rejected() {
 
     let user1 = Address::generate(&env);
     let user2 = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     client.set_profile(&user1, &String::from_str(&env, "shared_username"), &token);
     client.set_profile(&user2, &String::from_str(&env, "shared_username"), &token);
@@ -324,7 +329,7 @@ fn test_username_same_user_can_reregister_same_name() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
     // Same user re-registering with the same username should not panic
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
@@ -462,7 +467,7 @@ fn test_profile_count() {
 
     let user1 = Address::generate(&env);
     let user2 = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     client.set_profile(&user1, &String::from_str(&env, "alice"), &token);
     assert_eq!(client.get_profile_count(), 1);
@@ -1273,7 +1278,7 @@ fn test_username_too_short() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // 2-character username should panic
     client.set_profile(&user, &String::from_str(&env, "ab"), &token);
@@ -1286,7 +1291,7 @@ fn test_username_min_length_valid() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // 3-character username should succeed
     client.set_profile(&user, &String::from_str(&env, "abc"), &token);
@@ -1301,7 +1306,7 @@ fn test_username_max_length_valid() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // 32-character username should succeed
     let username_str = "abcdefghijklmnopqrstuvwxyz123456";
@@ -1320,7 +1325,7 @@ fn test_username_too_long() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // 33-character username should panic
     let username_str = "abcdefghijklmnopqrstuvwxyz1234567";
@@ -1337,7 +1342,7 @@ fn test_username_with_space() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // Username with space should panic
     client.set_profile(&user, &String::from_str(&env, "user name"), &token);
@@ -1351,7 +1356,7 @@ fn test_username_with_special_char() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // Username with special character should panic
     client.set_profile(&user, &String::from_str(&env, "user@name"), &token);
@@ -2170,7 +2175,7 @@ fn test_username_uniqueness_enforced() {
 
     let user1 = Address::generate(&env);
     let user2 = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // User1 registers "alice"
     client.set_profile(&user1, &String::from_str(&env, "alice"), &token);
@@ -2186,7 +2191,7 @@ fn test_username_update_by_owner() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // Register with "alice"
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
@@ -2219,7 +2224,7 @@ fn test_username_freed_on_change() {
 
     let user1 = Address::generate(&env);
     let user2 = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     // User1 registers "alice"
     client.set_profile(&user1, &String::from_str(&env, "alice"), &token);
@@ -2527,7 +2532,7 @@ fn test_profile_write_extends_ttl() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
 
     let contract_id = client.address.clone();
@@ -2626,7 +2631,7 @@ fn test_profile_count_decrements_on_delete() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
     assert_eq!(
@@ -2654,7 +2659,7 @@ fn test_profile_count_never_below_zero() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     client.set_profile(&user, &String::from_str(&env, "alice"), &token);
     client.delete_profile(&user);
@@ -2673,7 +2678,7 @@ fn test_delete_profile_frees_username() {
 
     let user1 = Address::generate(&env);
     let user2 = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     client.set_profile(&user1, &String::from_str(&env, "alice"), &token);
     client.delete_profile(&user1);
@@ -2718,7 +2723,7 @@ fn test_profile_count_tracks_total_created_never_decrements() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
 
     assert_eq!(client.get_profile_count(), 0, "counter starts at zero");
 
@@ -2758,7 +2763,7 @@ fn test_username_index_uses_typed_storage_key() {
     let (client, _, _) = setup_contract(&env);
 
     let user = Address::generate(&env);
-    let token = Address::generate(&env);
+    let token = make_token(&env);
     let username = String::from_str(&env, "charlie");
 
     client.set_profile(&user, &username, &token);

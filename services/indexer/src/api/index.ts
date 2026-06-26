@@ -105,7 +105,7 @@ export function createApp(db: Database): express.Application {
       }
 
       // TODO: integrate with the search database.
-      res.json({ posts: [], total: 0, has_more: false });
+      res.json({ posts: [], total: 0, has_more: false, limit, offset });
     }
   );
 

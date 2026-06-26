@@ -756,6 +756,9 @@ impl mega-header-mega-header-mega-header-kovaraContract {
         }
 
         let post_key = StorageKey::Post(post_id);
+        if !env.storage().persistent().has(&post_key) {
+            panic!("post does not exist");
+        }
         let mut post: Post = env
             .storage()
             .persistent()

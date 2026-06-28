@@ -58,6 +58,18 @@ export interface PoolRecord {
   threshold: number;
   created_ledger: number;
   updated_ledger: number;
+  token_name?: string;
+  token_symbol?: string;
+  token_decimals?: number;
+}
+
+export interface SearchedPost {
+  id: bigint;
+  author: string;
+  content: string;
+  tip_total: bigint;
+  like_count: bigint;
+  created_ledger: number;
 }
 
 export interface Database {
@@ -111,6 +123,19 @@ export interface Database {
     limit: number,
     offset: number
   ): Promise<{ following: string[]; total: number }>;
+
+  // Search
+  searchPosts(query: string, limit: number, offset: number): Promise<{
+    posts: SearchedPost[];
+    total: number;
+  }>;
+
+  // Token metadata
+  getTokenMetadata(token: string): Promise<{
+    name: string;
+    symbol: string;
+    decimals: number;
+  } | null>;
 }
 
 export class PostgresDatabase implements Database {
@@ -132,9 +157,22 @@ export class PostgresDatabase implements Database {
       tip_total: this.toBigInt(row.tip_total ?? 0),
       like_count: this.toBigInt(row.like_count ?? 0),
       created_ledger: Number(row.created_ledger ?? 0),
-      deleted_ledger: row.deleted_ledger === null || row.deleted_ledger === undefined ? null : Number(row.deleted_ledger),
-      created_at: row.created_at instanceof Date ? row.created_at : row.created_at ? new Date(String(row.created_at)) : null,
-      deleted_at: row.deleted_at instanceof Date ? row.deleted_at : row.deleted_at ? new Date(String(row.deleted_at)) : null,
+      deleted_ledger:
+        row.deleted_ledger === null || row.deleted_ledger === undefined
+          ? null
+          : Number(row.deleted_ledger),
+      created_at:
+        row.created_at instanceof Date
+          ? row.created_at
+          : row.created_at
+            ? new Date(String(row.created_at))
+            : null,
+      deleted_at:
+        row.deleted_at instanceof Date
+          ? row.deleted_at
+          : row.deleted_at
+            ? new Date(String(row.deleted_at))
+            : null,
     };
   }
 
@@ -177,7 +215,13 @@ export class PostgresDatabase implements Database {
       VALUES ($1, $2, $3, $4, $5, NOW())
       ON CONFLICT (id) DO NOTHING
       `,
-      [post.id.toString(), post.author, post.content, post.tip_total.toString(), post.like_count.toString()]
+      [
+        post.id.toString(),
+        post.author,
+        post.content,
+        post.tip_total.toString(),
+        post.like_count.toString(),
+      ]
     );
   }
 
@@ -206,7 +250,14 @@ export class PostgresDatabase implements Database {
   }
 
   async getPost(post_id: bigint): Promise<Post | null> {
-    const result = await this.pool.query(`SELECT * FROM posts WHERE id = $1`, [post_id.toString()]);
+    // Soft-delete: rows with a non-null `deleted_at` are treated as gone and
+    // surface as `null` so the REST endpoint returns the same 404 it would
+    // for a post that never existed. This matches the README/indexer spec
+    // and keeps testing simple: callers don’t have to inspect `deleted`.
+    const result = await this.pool.query(
+      `SELECT * FROM posts WHERE id = $1 AND deleted_at IS NULL`,
+      [post_id.toString()]
+    );
     return result.rowCount ? this.mapPost(result.rows[0]) : null;
   }
 
@@ -230,7 +281,14 @@ export class PostgresDatabase implements Database {
       VALUES ($1, $2, $3, $4, $5, $6)
       ON CONFLICT (tx_hash) DO NOTHING
       `,
-      [tip.tipper, tip.post_id.toString(), tip.amount.toString(), tip.fee.toString(), tip.ledger, tip.tx_hash]
+      [
+        tip.tipper,
+        tip.post_id.toString(),
+        tip.amount.toString(),
+        tip.fee.toString(),
+        tip.ledger,
+        tip.tx_hash,
+      ]
     );
   }
 
@@ -246,7 +304,15 @@ export class PostgresDatabase implements Database {
         threshold = EXCLUDED.threshold,
         updated_ledger = EXCLUDED.updated_ledger
       `,
-      [pool.pool_id, pool.token, pool.balance.toString(), pool.admins, pool.threshold, pool.created_ledger, pool.updated_ledger]
+      [
+        pool.pool_id,
+        pool.token,
+        pool.balance.toString(),
+        pool.admins,
+        pool.threshold,
+        pool.created_ledger,
+        pool.updated_ledger,
+      ]
     );
   }
 
@@ -268,7 +334,15 @@ export class PostgresDatabase implements Database {
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (pool_id) DO NOTHING
       `,
-      [pool.pool_id, pool.token, pool.balance.toString(), pool.admins, pool.threshold, pool.created_ledger, pool.updated_ledger]
+      [
+        pool.pool_id,
+        pool.token,
+        pool.balance.toString(),
+        pool.admins,
+        pool.threshold,
+        pool.created_ledger,
+        pool.updated_ledger,
+      ]
     );
   }
 
@@ -304,7 +378,11 @@ export class PostgresDatabase implements Database {
     return result.rowCount ? (result.rows[0] as Profile) : null;
   }
 
-  async listPosts(filters: { author?: string; limit: number; offset: number }): Promise<{ posts: Post[]; total: number }> {
+  async listPosts(filters: {
+    author?: string;
+    limit: number;
+    offset: number;
+  }): Promise<{ posts: Post[]; total: number }> {
     const { author, limit, offset } = filters;
     const values: unknown[] = [];
     let whereClause = "WHERE deleted_at IS NULL";
@@ -314,7 +392,10 @@ export class PostgresDatabase implements Database {
       whereClause += ` AND author = $${values.length}`;
     }
 
-    const countResult = await this.pool.query(`SELECT COUNT(*)::int AS total FROM posts ${whereClause}`, values);
+    const countResult = await this.pool.query(
+      `SELECT COUNT(*)::int AS total FROM posts ${whereClause}`,
+      values
+    );
     const result = await this.pool.query(
       `SELECT * FROM posts ${whereClause} ORDER BY created_at DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
       [...values, limit, offset]
@@ -326,7 +407,11 @@ export class PostgresDatabase implements Database {
     };
   }
 
-  async searchPosts(filters: { query: string; limit: number; offset: number }): Promise<{ posts: Post[]; total: number }> {
+  async searchPosts(filters: {
+    query: string;
+    limit: number;
+    offset: number;
+  }): Promise<{ posts: Post[]; total: number }> {
     const { query, limit, offset } = filters;
     const normalizedQuery = query.trim();
 
@@ -364,8 +449,15 @@ export class PostgresDatabase implements Database {
     };
   }
 
-  async getFollowers(address: string, limit: number, offset: number): Promise<{ followers: string[]; total: number }> {
-    const countResult = await this.pool.query(`SELECT COUNT(*)::int AS total FROM follows WHERE followee = $1`, [address]);
+  async getFollowers(
+    address: string,
+    limit: number,
+    offset: number
+  ): Promise<{ followers: string[]; total: number }> {
+    const countResult = await this.pool.query(
+      `SELECT COUNT(*)::int AS total FROM follows WHERE followee = $1`,
+      [address]
+    );
     const result = await this.pool.query(
       `SELECT follower FROM follows WHERE followee = $1 ORDER BY follower LIMIT $2 OFFSET $3`,
       [address, limit, offset]
@@ -377,8 +469,15 @@ export class PostgresDatabase implements Database {
     };
   }
 
-  async getFollowing(address: string, limit: number, offset: number): Promise<{ following: string[]; total: number }> {
-    const countResult = await this.pool.query(`SELECT COUNT(*)::int AS total FROM follows WHERE follower = $1`, [address]);
+  async getFollowing(
+    address: string,
+    limit: number,
+    offset: number
+  ): Promise<{ following: string[]; total: number }> {
+    const countResult = await this.pool.query(
+      `SELECT COUNT(*)::int AS total FROM follows WHERE follower = $1`,
+      [address]
+    );
     const result = await this.pool.query(
       `SELECT followee FROM follows WHERE follower = $1 ORDER BY followee LIMIT $2 OFFSET $3`,
       [address, limit, offset]

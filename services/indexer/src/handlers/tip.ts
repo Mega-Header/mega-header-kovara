@@ -1,9 +1,5 @@
-/**
- * Tip Event Handler
- * Handles TipEvent from the mega-header-mega-header-mega-header-kovara contract
- */
-
 import { Pool } from "pg";
+import { logger } from "../logger";
 
 export interface TipEvent {
   tipper: string;
@@ -155,9 +151,6 @@ export async function handleTip(
   }
 }
 
-/**
- * Unit test helper: Mock event data
- */
 export function createMockTipEvent(
   tipper: string = "GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
   post_id: bigint = 1n,

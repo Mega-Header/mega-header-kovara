@@ -166,6 +166,7 @@ impl mega-header-mega-header-mega-header-kovaraContract {
     pub fn fund_rewards(env: Env, depositor: Address, token: Address, amount: i128) {
         Self::require_initialized(&env);
         Self::bump_instance(&env);
+        Self::require_admin(&env);
         depositor.require_auth();
         Self::validate_reward_asset(&env, &token);
         if amount <= 0 {

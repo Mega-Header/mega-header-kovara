@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: "mega-header-mega-header-mega-header-kovara",
   description: "Decentralised social on Stellar",
 };
+      // onPress={() => router.push("/connect" as Parameters<typeof router.push>[0])}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

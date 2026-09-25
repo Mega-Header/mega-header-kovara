@@ -5,6 +5,7 @@ import rateLimit, { RateLimitRequestHandler } from "express-rate-limit";
 import crypto from "crypto";
 import { Database } from "../db";
 import { ApiErrorResponse, DebugSnapshot } from "./contracts";
+import { sendError, sendNotFound } from "./response";
 import { logger } from "../logger";
 import pkg from "../../package.json";
 import {
@@ -434,7 +435,7 @@ export function createApp(db: Database, options: AppOptions = {}): express.Appli
   // ── 404 catch-all for API routes (BE-26) ───────────────────────────────────
   // Returns a consistent JSON error body instead of the default Express HTML.
   apiRouter.use((_req: Request, res: Response): void => {
-    res.status(404).json({ error: "Route not found", code: "NOT_FOUND" });
+    sendNotFound(res, "Route");
   });
 
   // Version 1 is the canonical, stable API contract.  The legacy unversioned
@@ -450,6 +451,9 @@ export function createApp(db: Database, options: AppOptions = {}): express.Appli
   app.use(LEGACY_API_PREFIX, apiRouter);
 
   // ── Error handler ─────────────────────────────────────────────────────────────
+  // All branches below emit the same structured ApiError shape (via sendError/
+  // sendNotFound from ./response) so every error response — expected or an
+  // unhandled exception — is a consistent, client-actionable JSON payload (BE-31).
 
   // Catch malformed JSON payloads (BE-19).
   app.use((err: Error, _req: Request, res: Response, next: NextFunction): void => {
@@ -460,10 +464,7 @@ export function createApp(db: Database, options: AppOptions = {}): express.Appli
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (err as any).status === 400
     ) {
-      res.status(400).json({
-        error: "Invalid JSON in request body",
-        code: "MALFORMED_JSON",
-      });
+      sendError(res, 400, "Invalid JSON in request body", "MALFORMED_JSON");
       return;
     }
     next(err);
@@ -489,19 +490,14 @@ export function createApp(db: Database, options: AppOptions = {}): express.Appli
       });
 
       if (databaseRelated) {
-        res.status(503).json({
-          error: "Database unavailable",
-          code: "DATABASE_UNAVAILABLE",
-          correlationId,
-        } as ApiErrorResponse & { correlationId?: string });
+        sendError(res, 503, "Database unavailable", "DATABASE_UNAVAILABLE", { correlationId });
         return;
       }
 
-      res.status(500).json({
-        error: "Internal server error",
-        code: "INTERNAL_ERROR",
-        correlationId,
-      } as ApiErrorResponse & { correlationId?: string });
+      // Unhandled exceptions of any other kind are converted to a safe,
+      // generic 500 — the original error is logged above but never leaked
+      // to the client.
+      sendError(res, 500, "Internal server error", "INTERNAL_ERROR", { correlationId });
     }
   );
 

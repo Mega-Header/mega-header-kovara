@@ -166,4 +166,51 @@ describePg("PostgreSQL integration", () => {
     const updated = await db.getPost(postId);
     expect(updated?.tip_total).toBe(4000000n);
   });
+
+  it("rejects malformed payloads gracefully (edge case)", async () => {
+    const res = await request(app)
+      .post("/api/search/posts")
+      .set("Content-Type", "application/json")
+      .send("{ malformed json }");
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("MALFORMED_JSON");
+  });
+
+  it("handles overly large queries gracefully (edge case)", async () => {
+    const hugeQuery = "a".repeat(501);
+    const res = await request(app)
+      .post("/api/search/posts")
+      .set("Content-Type", "application/json")
+      .send({ query: hugeQuery });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("QUERY_TOO_LONG");
+  });
+
+  it("handles pagination over a large data set of posts", async () => {
+    // Insert a batch of posts
+    for (let i = 0; i < 50; i++) {
+      await db.insertPost({
+        id: BigInt(2000000 + i),
+        author: STELLAR_ADDR,
+        content: `bulk post ${i}`,
+        deleted: false,
+        tip_total: 0n,
+        like_count: 0n,
+        created_ledger: 20,
+        deleted_ledger: null,
+      });
+    }
+
+    // List them via the db interface
+    const page1 = await db.listPosts({ limit: 20, offset: 0 });
+    expect(page1.posts.length).toBe(20);
+
+    const page2 = await db.listPosts({ limit: 20, offset: 20 });
+    expect(page2.posts.length).toBe(20);
+
+    const page3 = await db.listPosts({ limit: 20, offset: 40 });
+    // It might be more than 10 because previous tests also inserted posts.
+    // So we just expect it to return some posts and not fail.
+    expect(page3.posts.length).toBeGreaterThanOrEqual(10);
+  });
 });

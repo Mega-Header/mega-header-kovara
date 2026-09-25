@@ -241,6 +241,12 @@ pub enum Error {
     /// The schema version embedded in the payload does not match the
     /// contract's current schema version.
     SchemaMismatch = 8,
+    /// `from_ts` is greater than `to_ts` in a range query.
+    ///
+    /// Appended as 9 rather than reusing 2: `#[contracterror]` discriminants
+    /// are part of the contract ABI, so renumbering an existing variant would
+    /// silently change the code every deployed client already maps.
+    InvalidRange = 9,
 }
 
 // ── payload module ────────────────────────────────────────────────────────────
@@ -560,8 +566,6 @@ impl SubmissionStatus {
     pub fn is_terminal(self) -> bool {
         matches!(self, SubmissionStatus::Verified | SubmissionStatus::Rejected)
     }
-    /// `from_ts` is greater than `to_ts` in a range query.
-    InvalidRange = 2,
 }
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
@@ -614,6 +618,16 @@ pub struct PriceSubmission {
     /// Once the current ledger timestamp reaches or exceeds `valid_until`,
     /// `is_valid_at` returns `false` and `get_valid` returns `None`.
     pub valid_until: u64,
+    /// Native timestamp of the observation.
+    ///
+    /// Validated by [`guards::require_positive_u64`]: must be `> 0`.
+    pub timestamp: u64,
+    /// Current lifecycle state of this submission.
+    ///
+    /// Set to [`SubmissionStatus::Pending`] at creation.  Transitions to
+    /// [`SubmissionStatus::Verified`] or [`SubmissionStatus::Rejected`] via
+    /// [`PriceVault::set_status`].  Both non-`Pending` states are terminal.
+    pub status: SubmissionStatus,
 }
 
 impl PriceSubmission {
@@ -626,18 +640,6 @@ impl PriceSubmission {
     pub fn is_valid_at(&self, query_ts: u64) -> bool {
         query_ts >= self.valid_from && query_ts < self.valid_until
     }
-}
-
-    /// Native timestamp of the observation.
-    ///
-    /// Validated by [`guards::require_positive_u64`]: must be `> 0`.
-    pub timestamp: u64,
-    /// Current lifecycle state of this submission.
-    ///
-    /// Set to [`SubmissionStatus::Pending`] at creation.  Transitions to
-    /// [`SubmissionStatus::Verified`] or [`SubmissionStatus::Rejected`] via
-    /// [`PriceVault::set_status`].  Both non-`Pending` states are terminal.
-    pub status: SubmissionStatus,
 }
 
 // ── Contract ──────────────────────────────────────────────────────────────────

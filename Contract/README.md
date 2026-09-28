@@ -2,12 +2,30 @@
 
 The four mega-header-mega-header-mega-header-kovara Soroban contracts, as a reproducible Rust Cargo workspace:
 
-| Contract | Crate | Purpose |
-|---|---|---|
-| PriceVault | `mega-header-mega-header-kovara-price-vault` | Stores raw price submissions keyed by `(country_iso, category, timestamp)` |
-| SentinelPool | `mega-header-mega-header-kovara-sentinel-pool` | Manages verifier staking, quorum logic, and slashing |
-| FlowRewards | `mega-header-mega-header-kovara-flow-rewards` | Releases XLM / Stellar USDC to verified submitters and verifiers |
-| mega-header-mega-header-mega-header-kovaraIndex | `mega-header-mega-header-kovara-index` | Aggregates verified prices into the daily `KVI` per country |
+| Contract     | Crate                  | Purpose                                                                    |
+| ------------ | ---------------------- | -------------------------------------------------------------------------- |
+| PriceVault   | `mega-header-mega-header-kovara-price-vault`   | Stores raw price submissions keyed by `(country_iso, category, timestamp)` |
+| SentinelPool | `mega-header-mega-header-kovara-sentinel-pool` | Manages verifier staking, quorum logic, and slashing                       |
+| FlowRewards  | `mega-header-mega-header-kovara-flow-rewards`  | Releases XLM / Stellar USDC to verified submitters and verifiers           |
+| mega-header-mega-header-mega-header-kovaraIndex  | `mega-header-mega-header-kovara-index`         | Aggregates verified prices into the daily `KVI` per country                |
+
+## PriceVault storage layout
+
+`PriceVault` uses typed Soroban keys rather than concatenated strings:
+
+| Key                                            | Stored value                                                   | Lookup                                                 |
+| ---------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------ |
+| `DataKey::Price(country, category, timestamp)` | Complete `PriceSubmission`, including price and audit metadata | Single-record reads (`get`, `get_valid`, `get_status`) |
+| `DataKey::SubmissionIndex(country, category)`  | `Vec<u64>` of observation timestamps                           | Grouped history and latest-record reads                |
+
+The index timestamps point to `Price` keys in the same country/category scope.
+The observation timestamp is `valid_from`; duplicate submissions for the same
+composite key leave the original value and index entry unchanged. Keeping
+metadata inside `PriceSubmission` makes the record and its metadata atomic.
+
+Treat existing key variants and component types as persistent schema. For an
+incompatible layout change, add a versioned key and an explicit migration;
+never silently repurpose or rename an existing key.
 
 ## Prerequisites
 

@@ -1,31 +1,22 @@
-<!-- ---
+---
 name: Bug report
-about: Report a reproducible problem in mega-header-mega-header-mega-header-kovara Social
-title: "[Bug]: "
+about: Create a report to help us improve
+title: '[BUG] '
 labels: bug
+assignees: ''
 ---
 
-## Description
+## Describe the bug
+A clear and concise description of what the bug is.
 
-Describe the bug clearly and concisely.
+## To Reproduce
+Steps to reproduce the behavior.
 
-## Steps to Reproduce
+## Expected behavior
+A clear and concise description of what you expected to happen.
 
-1.
-2.
-3.
+## Screenshots
+If applicable, add screenshots to help explain your problem.
 
-## Expected Behavior
-
-What did you expect to happen?
-
-## Actual Behavior
-
-What actually happened?
-
-## Environment
-
-- Browser / client:
-- OS:
-- Repository version / commit:
-- Relevant network or contract configuration: -->
+## Additional context
+Add any other context about the problem here.

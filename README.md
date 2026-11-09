@@ -363,3 +363,11 @@ MIT © 2025 Kōvara Contributors
 | `/basket` | BasketIndexView | Active items and checkout basket management |
 | `/methodology` | MethodologyIndexView | Documentation and formula explanations |
 | `/rewards` | RewardsIndexView | User rewards, staking, and bonus tracking |
+## Resolved Issues
+
+The following issues have been addressed in this release:
+
+- Added issue templates for bug reports and feature requests
+- Added contributing guidelines and CODEOWNERS
+- Improved repository documentation and onboarding
+
